@@ -70,6 +70,9 @@ void pidInitFilters(const pidProfile_t *pidProfile)
 
     if (targetPidLooptime == 0) {
         // no looptime set, so set all the filters to null
+        // excitation
+        pidRuntime.excLowpassApplyFn = nullFilterApply;
+
         pidRuntime.dtermNotchApplyFn = nullFilterApply;
         pidRuntime.dtermLowpassApplyFn = nullFilterApply;
         pidRuntime.dtermLowpass2ApplyFn = nullFilterApply;
@@ -78,6 +81,12 @@ void pidInitFilters(const pidProfile_t *pidProfile)
     }
 
     const uint32_t pidFrequencyNyquist = pidRuntime.pidFrequency / 2; // No rounding needed
+
+    // excitation: custom filters
+    pidRuntime.excLowpassApplyFn = (filterApplyFnPtr)leadlag1FilterApply;
+    leadlag1FilterInit(&pidRuntime.excLowpass, 30.0f, 3.0f, pidRuntime.dT);
+    chirpInitExp(&pidRuntime.chirp, 0.2f, 900.0f, (uint32_t)(20.0f / pidRuntime.dT), pidRuntime.dT);
+    //chirpInitAlpha(&pidRuntime.chirp, 0.2f, 900.0f, (uint32_t)(20.0f / pidRuntime.dT), pidRuntime.dT, 5.0f);
 
     uint16_t dTermNotchHz;
     if (pidProfile->dterm_notch_hz <= pidFrequencyNyquist) {
@@ -204,7 +213,15 @@ void pidInitFilters(const pidProfile_t *pidProfile)
 #if defined(USE_ITERM_RELAX)
     if (pidRuntime.itermRelax) {
         for (int i = 0; i < XYZ_AXIS_COUNT; i++) {
-            pt1FilterInit(&pidRuntime.windupLpf[i], pt1FilterGain(pidRuntime.itermRelaxCutoff, pidRuntime.dT));
+            //pt1FilterInit(&pidRuntime.windupLpf[i], pt1FilterGain(pidRuntime.itermRelaxCutoff, pidRuntime.dT));
+            // itermRelax
+            static float scaleCutoff;
+            if (i == FD_PITCH) {
+                scaleCutoff = 0.9f;
+            } else {
+                scaleCutoff = 1.0f;
+            }
+            pt1FilterInit(&pidRuntime.windupLpf[i], pt1FilterGain(pidRuntime.itermRelaxCutoff * scaleCutoff, pidRuntime.dT));
         }
     }
 #endif

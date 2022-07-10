@@ -547,7 +547,9 @@ static FAST_CODE_NOINLINE float applyAcroTrainer(int axis, const rollAndPitchTri
 {
     float ret = setPoint;
 
-    if (!FLIGHT_MODE(ANGLE_MODE) && !FLIGHT_MODE(HORIZON_MODE) && !FLIGHT_MODE(GPS_RESCUE_MODE)) {
+    // excitation
+    //if (!FLIGHT_MODE(ANGLE_MODE) && !FLIGHT_MODE(HORIZON_MODE) && !FLIGHT_MODE(GPS_RESCUE_MODE)) {
+    if (!FLIGHT_MODE(ANGLE_MODE) && !FLIGHT_MODE(GPS_RESCUE_MODE)) {
         bool resetIterm = false;
         float projectedAngle = 0;
         const int setpointSign = acroTrainerSign(setPoint);
@@ -843,7 +845,9 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
 
     const bool gpsRescueIsActive = FLIGHT_MODE(GPS_RESCUE_MODE);
     levelMode_e levelMode;
-    if (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE) || gpsRescueIsActive) {
+    // excitation
+    //if (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE) || gpsRescueIsActive) {
+    if (FLIGHT_MODE(ANGLE_MODE) || gpsRescueIsActive) {
         if (pidRuntime.levelRaceMode && !gpsRescueIsActive) {
             levelMode = LEVEL_MODE_R;
         } else {
@@ -858,7 +862,8 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
         }
 
         // Calc horizonLevelStrength if needed
-        if (FLIGHT_MODE(HORIZON_MODE)) {
+        //if (FLIGHT_MODE(HORIZON_MODE)) {
+        if ( false ) {    
             horizonLevelStrength = calcHorizonLevelStrength();
         }
     } else {
@@ -903,11 +908,11 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
         // This is done to avoid DTerm spikes that occur with dynamically
         // calculated deltaT whenever another task causes the PID
         // loop execution to be delayed.
+        previousRawGyroRateDterm[axis] = gyroRateDterm[axis];
 
         // Log the unfiltered D for ROLL and PITCH
         if (axis != FD_YAW) {
             const float delta = (previousRawGyroRateDterm[axis] - gyroRateDterm[axis]) * pidRuntime.pidFrequency / D_LPF_RAW_SCALE;
-            previousRawGyroRateDterm[axis] = gyroRateDterm[axis];
             DEBUG_SET(DEBUG_D_LPF, axis, lrintf(delta));
         }
 
@@ -926,8 +931,46 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
     const bool newRcFrame = getShouldUpdateFeedforward();
 #endif
 
+    // excitation parameters
+    static int excAxis = 0;
+    static bool excToggleVariable = true;
+    static const float excAmplitude[3] = { 180.0f, 180.0f, 100.0f };
+
+    // calculate excitation
+    float exc = 0.0f;
+    float sinarg = 0.0f;
+    if (FLIGHT_MODE(HORIZON_MODE)) {
+        if (excToggleVariable) {
+            excToggleVariable = false;
+        }
+        if (chirpUpdate(&pidRuntime.chirp)) {
+            exc = pidRuntime.chirp.exc;
+            sinarg = pidRuntime.chirp.sinarg;
+        }         
+    } else {
+        if (!excToggleVariable) {
+            chirpResetCount(&pidRuntime.chirp);
+            chirpResetSignals(&pidRuntime.chirp);
+            excAxis++;
+            if (excAxis == FD_YAW + 1) {
+                excAxis = 0;
+            }
+            excToggleVariable = true;
+        }
+    }
+    // unscaled and filtered excitation signals
+    float excLowpass = pidRuntime.excLowpassApplyFn((filter_t *) &pidRuntime.excLowpass, exc);
+
     // ----------PID controller----------
     for (int axis = FD_ROLL; axis <= FD_YAW; ++axis) {
+
+        // excitation: initialize and reset variables
+        float currentExcLowpass = 0.0f;
+        float currentSinarg = 0.0f;
+        if(axis == excAxis){
+            currentExcLowpass = excAmplitude[axis] * excLowpass;
+            currentSinarg = sinarg;
+        }
 
         float currentPidSetpoint = getSetpointRate(axis);
         if (pidRuntime.maxVelocity[axis]) {
@@ -969,6 +1012,8 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
 
         // -----calculate error rate
         const float gyroRate = gyro.gyroADCf[axis]; // Process variable from gyro output in deg/sec
+        // excitation
+        currentPidSetpoint += currentExcLowpass;
         float errorRate = currentPidSetpoint - gyroRate; // r - y
 #if defined(USE_ACC)
         handleCrashRecovery(
@@ -1168,6 +1213,8 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
         {
             pidData[axis].Sum = pidSum;
         }
+        // excitation
+        pidData[axis].currentSinarg = currentSinarg;
     }
 
     // Disable PID control if at zero throttle or if gyro overflow detected

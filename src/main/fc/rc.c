@@ -526,7 +526,9 @@ static FAST_CODE void processRcSmoothingFilter(void)
     }
 
     // for ANGLE and HORIZON, smooth rcDeflection on pitch and roll to avoid setpoint steps
-    bool smoothingNeeded = (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE)) && rcSmoothingData.filterInitialized;
+    // excitation
+    //bool smoothingNeeded = (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE)) && rcSmoothingData.filterInitialized;
+    bool smoothingNeeded = (FLIGHT_MODE(ANGLE_MODE)) && rcSmoothingData.filterInitialized;
     for (int axis = FD_ROLL; axis <= FD_YAW; axis++) {
         if (smoothingNeeded && axis < FD_YAW) {
             rcDeflectionSmoothed[axis] = pt3FilterApply(&rcSmoothingData.filterDeflection[axis], rcDeflection[axis]);
@@ -660,7 +662,9 @@ FAST_CODE_NOINLINE void updateRcCommands(void)
 
         rcCommandBuff.X = rcCommand[ROLL];
         rcCommandBuff.Y = rcCommand[PITCH];
-        if ((!FLIGHT_MODE(ANGLE_MODE) && (!FLIGHT_MODE(HORIZON_MODE)) && (!FLIGHT_MODE(GPS_RESCUE_MODE)))) {
+        // excitation
+        // if ((!FLIGHT_MODE(ANGLE_MODE) && (!FLIGHT_MODE(HORIZON_MODE)) && (!FLIGHT_MODE(GPS_RESCUE_MODE)))) {
+        if ((!FLIGHT_MODE(ANGLE_MODE) && (!FLIGHT_MODE(GPS_RESCUE_MODE)))) {
             rcCommandBuff.Z = rcCommand[YAW];
         } else {
             rcCommandBuff.Z = 0;
@@ -668,7 +672,9 @@ FAST_CODE_NOINLINE void updateRcCommands(void)
         imuQuaternionHeadfreeTransformVectorEarthToBody(&rcCommandBuff);
         rcCommand[ROLL] = rcCommandBuff.X;
         rcCommand[PITCH] = rcCommandBuff.Y;
-        if ((!FLIGHT_MODE(ANGLE_MODE)&&(!FLIGHT_MODE(HORIZON_MODE)) && (!FLIGHT_MODE(GPS_RESCUE_MODE)))) {
+        // excitation
+        // if ((!FLIGHT_MODE(ANGLE_MODE)&&(!FLIGHT_MODE(HORIZON_MODE)) && (!FLIGHT_MODE(GPS_RESCUE_MODE)))) {
+        if ((!FLIGHT_MODE(ANGLE_MODE) && (!FLIGHT_MODE(GPS_RESCUE_MODE)))) {
             rcCommand[YAW] = rcCommandBuff.Z;
         }
     }

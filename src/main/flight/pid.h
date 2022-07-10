@@ -24,6 +24,8 @@
 #include "common/time.h"
 #include "common/filter.h"
 #include "common/axis.h"
+// excitation
+#include "common/chirp.h"
 
 #include "pg/pg.h"
 
@@ -244,8 +246,10 @@ typedef struct pidAxisData_s {
     float I;
     float D;
     float F;
-
+    
     float Sum;
+    // excitation
+    float currentSinarg;
 } pidAxisData_t;
 
 typedef union dtermLowpass_u {
@@ -263,6 +267,11 @@ typedef struct pidCoefficient_s {
 } pidCoefficient_t;
 
 typedef struct pidRuntime_s {
+    // excitation
+    chirp_t chirp;
+    filterApplyFnPtr excLowpassApplyFn;
+    leadlag1Filter_t excLowpass;
+
     float dT;
     float pidFrequency;
     bool pidStabilisationEnabled;

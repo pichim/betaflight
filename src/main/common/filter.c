@@ -309,3 +309,47 @@ void simpleLPFilterInit(simpleLowpassFilter_t *filter, int32_t beta, int32_t fpS
     filter->beta = beta;
     filter->fpShift = fpShift;
 }
+
+void pt1TustinFilterInit(pt1TustinFilter_t *filter, float filterFreq, float dT)
+{
+    pt1TustinUpdate(filter, filterFreq, dT);
+    filter->x = filter->y = 0;
+}
+
+FAST_CODE void pt1TustinUpdate(pt1TustinFilter_t *filter, float filterFreq, float dT)
+{
+    const float c = M_PIf * filterFreq * dT;
+    filter->b = c / (c + 1.0f);
+    filter->a = (c - 1.0f) / (c + 1.0f);
+}
+
+FAST_CODE float pt1TustinFilterApply(pt1TustinFilter_t *filter, float input)
+{
+    const float result = filter->b * (input + filter->x) - filter->a * filter->y;
+    filter->x = input;
+    filter->y = result;
+    return result;
+}
+
+void leadlag1FilterInit(leadlag1Filter_t *filter, float fz, float fp, float dT)
+{
+    leadlag1Update(filter, fz, fp, dT);
+    filter->x = filter->y = 0;
+}
+
+FAST_CODE void leadlag1Update(leadlag1Filter_t *filter, float fz, float fp, float dT)
+{
+    const float c = M_PIf * fp * dT;
+    const float a0 = fz * (1.0f + c);
+    filter->b1 = (c * fz + fp) / a0;
+    filter->b0 = (c * fz - fp) / a0;
+    filter->a1 = fz * (c - 1.0f) / a0;
+}
+
+FAST_CODE float leadlag1FilterApply(leadlag1Filter_t *filter, float input)
+{
+    const float result = filter->b1 * input + filter->b0 * filter->x - filter->a1 * filter->y;
+    filter->x = input;
+    filter->y = result;
+    return filter->y;
+}

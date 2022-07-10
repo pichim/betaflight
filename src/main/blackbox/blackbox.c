@@ -382,6 +382,7 @@ STATIC_UNIT_TESTED int32_t blackboxSInterval = 0;
 STATIC_UNIT_TESTED int32_t blackboxSlowFrameIterationTimer;
 static bool blackboxLoggedAnyFrames;
 static float blackboxHighResolutionScale;
+static float scaleSinarg;
 
 /*
  * We store voltages in I-frames relative to this, which was the voltage when the blackbox was activated.
@@ -1075,9 +1076,14 @@ static void loadMainState(timeUs_t currentTimeUs)
 #endif
     }
 
-    for (int i = 0; i < 4; i++) {
-        blackboxCurrent->rcCommand[i] = lrintf(rcCommand[i] * blackboxHighResolutionScale);
+    // excitation
+    //for (int i = 0; i < 4; i++) {
+    //   blackboxCurrent->rcCommand[i] = lrintf(rcCommand[i] * blackboxHighResolutionScale);
+    //}
+    for (int i = 0; i < 3; i++) {
+        blackboxCurrent->rcCommand[i] = lrintf(scaleSinarg * pidData[i].currentSinarg * blackboxHighResolutionScale);
     }
+    blackboxCurrent->rcCommand[4] = 0;
 
     // log the currentPidSetpoint values applied to the PID controller
     for (int i = 0; i < XYZ_AXIS_COUNT; i++) {
@@ -1085,7 +1091,7 @@ static void loadMainState(timeUs_t currentTimeUs)
     }
     // log the final throttle value used in the mixer
     blackboxCurrent->setpoint[3] = lrintf(mixerGetThrottle() * 1000);
-
+    
     for (int i = 0; i < DEBUG16_VALUE_COUNT; i++) {
         blackboxCurrent->debug[i] = debug[i];
     }
@@ -1978,7 +1984,8 @@ void blackboxInit(void)
         blackboxSetState(BLACKBOX_STATE_DISABLED);
     }
     blackboxSInterval = blackboxIInterval * 256; // S-frame is written every 256*32 = 8192ms, approx every 8 seconds
-
+    
     blackboxHighResolutionScale = blackboxConfig()->high_resolution ? 10.0f : 1.0f;
+    scaleSinarg = blackboxConfig()->high_resolution ? 5.0e2f : 5.0e3f;
 }
 #endif
