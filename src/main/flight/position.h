@@ -21,6 +21,7 @@
 #pragma once
 
 #include "common/time.h"
+#include "common/filter.h"
 
 #define POSITION_DEFAULT_ALT_NUM_SATS_GPS_USE 10
 #define POSITION_DEFAULT_ALT_NUM_SATS_BARO_FALLBACK 7
@@ -36,4 +37,5 @@ PG_DECLARE(positionConfig_t, positionConfig);
 bool isAltitudeOffset(void);
 void calculateEstimatedAltitude(timeUs_t currentTimeUs);
 int32_t getEstimatedAltitudeCm(void);
+float getEstimatedAltitudeFusedCm(void);
 int16_t getEstimatedVario(void);

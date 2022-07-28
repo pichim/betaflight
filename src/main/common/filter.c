@@ -50,8 +50,13 @@ float pt1FilterGain(float f_cut, float dT)
 
 void pt1FilterInit(pt1Filter_t *filter, float k)
 {
-    filter->state = 0.0f;
-    filter->k = k;
+    pt1FilterSetState(filter, 0.0f);
+    pt1FilterUpdateCutoff(filter, k);
+}
+
+void pt1FilterSetState(pt1Filter_t *filter, float state)
+{
+    filter->state = state;
 }
 
 void pt1FilterUpdateCutoff(pt1Filter_t *filter, float k)
@@ -79,9 +84,14 @@ float pt2FilterGain(float f_cut, float dT)
 
 void pt2FilterInit(pt2Filter_t *filter, float k)
 {
-    filter->state = 0.0f;
-    filter->state1 = 0.0f;
-    filter->k = k;
+    pt2FilterSetState(filter, 0.0f);
+    pt2FilterUpdateCutoff(filter, k);
+}
+
+void pt2FilterSetState(pt2Filter_t *filter, float state)
+{
+    filter->state = state;
+    filter->state1 = state;
 }
 
 void pt2FilterUpdateCutoff(pt2Filter_t *filter, float k)
@@ -110,10 +120,15 @@ float pt3FilterGain(float f_cut, float dT)
 
 void pt3FilterInit(pt3Filter_t *filter, float k)
 {
-    filter->state = 0.0f;
-    filter->state1 = 0.0f;
-    filter->state2 = 0.0f;
-    filter->k = k;
+    pt3FilterSetState(filter, 0.0f);
+    pt3FilterUpdateCutoff(filter, k);
+}
+
+void pt3FilterSetState(pt3Filter_t *filter, float state)
+{
+    filter->state = state;
+    filter->state1 = state;
+    filter->state2 = state;
 }
 
 void pt3FilterUpdateCutoff(pt3Filter_t *filter, float k)

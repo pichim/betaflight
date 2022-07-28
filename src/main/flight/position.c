@@ -29,6 +29,7 @@
 #include "build/debug.h"
 
 #include "common/maths.h"
+#include "common/filter.h"
 
 #include "fc/runtime_config.h"
 
@@ -61,6 +62,13 @@ PG_RESET_TEMPLATE(positionConfig_t, positionConfig,
 );
 
 static int32_t estimatedAltitudeCm = 0;                // in cm
+
+pt3Filter_t fuseLowpassFilter;
+pt3Filter_t fuseHighpassFilter;
+static float estimatedAltitudeFusedCm = 0.0f;          // in cm
+
+// ToDo: the value 1000 should be set by the user, e.g. ~1 Hz for 5 Hz gnss update rate and ~2 Hz for 10 Hz gnss update rate
+static float fcutFuseFilter = 1000 * 1e-3f;
 
 #define BARO_UPDATE_FREQUENCY_40HZ (1000 * 25)
 
@@ -97,7 +105,9 @@ void calculateEstimatedAltitude(timeUs_t currentTimeUs)
     static int32_t baroAltOffset = 0;
     static int32_t gpsAltOffset = 0;
 
-    const uint32_t dTime = currentTimeUs - previousTimeUs;
+    static bool isFuseFilterInitialised = false;
+
+    const timeDelta_t dTime = cmpTimeUs(currentTimeUs, previousTimeUs);
     if (dTime < BARO_UPDATE_FREQUENCY_40HZ) {
         schedulerIgnoreTaskExecTime();
         return;
@@ -175,6 +185,7 @@ void calculateEstimatedAltitude(timeUs_t currentTimeUs)
     if (!altitudeOffsetSetGPS) {
         haveGpsAlt = false;
         gpsTrust = 0.0f;
+        isFuseFilterInitialised = false;
     }
 
     if (haveGpsAlt && haveBaroAlt && positionConfig()->altSource == DEFAULT) {
@@ -183,22 +194,44 @@ void calculateEstimatedAltitude(timeUs_t currentTimeUs)
         } else {
             estimatedAltitudeCm = gpsAlt; //absolute altitude is shown before arming, ignore baro
         }
+
+        // apply sensor fusion (complementary filter), low frequency portion of estimatedAltitudeCm and high frequency portion of baroAlt
+        if (dTime > 0) {
+            // initialise filter states
+            if (!isFuseFilterInitialised) {
+                pt3FilterSetState(&fuseLowpassFilter, estimatedAltitudeCm);
+                pt3FilterSetState(&fuseHighpassFilter, 0.0f);
+                isFuseFilterInitialised = true;
+            }
+
+            // correct filter gains since we are not running at a consistent rate currently
+            float dT = dTime * 1e-6f;
+            pt3FilterUpdateCutoff(&fuseLowpassFilter, pt3FilterGain(fcutFuseFilter, dT));
+            pt3FilterUpdateCutoff(&fuseHighpassFilter, pt3FilterGain(fcutFuseFilter, dT));
+            
+            // run the filters and sum them up: estimatedAltitudeCmFilteredLp is complemented by baroAltFilteredHp (G * lowfrequency part + (1 - G) * highfrequency part ~= 1)
+            float estimatedAltitudeCmFilteredLp = pt3FilterApply(&fuseLowpassFilter, estimatedAltitudeCm);
+            float baroAltFilteredHp = baroAlt - pt3FilterApply(&fuseHighpassFilter, baroAlt);
+            estimatedAltitudeFusedCm = estimatedAltitudeCmFilteredLp + baroAltFilteredHp;
+        }
+
 #ifdef USE_VARIO
         // baro is a better source for vario, so ignore gpsVertSpeed
         estimatedVario = calculateEstimatedVario(baroAlt, dTime);
 #endif
     } else if (haveGpsAlt && (positionConfig()->altSource == GPS_ONLY || positionConfig()->altSource == DEFAULT )) {
         estimatedAltitudeCm = gpsAlt;
+        estimatedAltitudeFusedCm = gpsAlt;
 #if defined(USE_VARIO) && defined(USE_GPS)
         estimatedVario = gpsVertSpeed;
 #endif
     } else if (haveBaroAlt && (positionConfig()->altSource == BARO_ONLY || positionConfig()->altSource == DEFAULT)) {
         estimatedAltitudeCm = baroAlt;
+        estimatedAltitudeFusedCm = baroAlt;
 #ifdef USE_VARIO
         estimatedVario = calculateEstimatedVario(baroAlt, dTime);
 #endif
     }
-
 
 
     DEBUG_SET(DEBUG_ALTITUDE, 0, (int32_t)(100 * gpsTrust));
@@ -207,6 +240,11 @@ void calculateEstimatedAltitude(timeUs_t currentTimeUs)
 #ifdef USE_VARIO
     DEBUG_SET(DEBUG_ALTITUDE, 3, estimatedVario);
 #endif
+
+    DEBUG_SET(DEBUG_ALTITUDE_FUSED, 0, baroAlt);
+    DEBUG_SET(DEBUG_ALTITUDE_FUSED, 1, gpsAlt);
+    DEBUG_SET(DEBUG_ALTITUDE_FUSED, 2, estimatedAltitudeCm);
+    DEBUG_SET(DEBUG_ALTITUDE_FUSED, 3, lrintf(estimatedAltitudeFusedCm));
 }
 
 bool isAltitudeOffset(void)
@@ -218,6 +256,11 @@ bool isAltitudeOffset(void)
 int32_t getEstimatedAltitudeCm(void)
 {
     return estimatedAltitudeCm;
+}
+
+float getEstimatedAltitudeFusedCm(void)
+{
+    return estimatedAltitudeFusedCm;
 }
 
 #ifdef USE_VARIO
