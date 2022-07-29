@@ -42,16 +42,39 @@ typedef union {
     int16_t raw[XYZ_AXIS_COUNT];
     struct {
         // absolute angle inclination in multiple of 0.1 degree    180 deg = 1800
-        int16_t roll;
-        int16_t pitch;
-        int16_t yaw;
+        // rMat = Rz(-yaw) * Ry(pitch) * Rx (roll)
+        // usual rpy euler angels use the convention Rz(yaw) * Ry(pitch) * Rx (roll) with the z axis pointing up (building a right hand system)
+        int16_t roll;  /** roll lies in (-180, 180) deg
+                        *  rotating it 360 deg around x looks like this: 360      /   roll
+                        *                                                        /     ^
+                        *                                                       /      |
+                        *                                                  0   /        --> actual rotation */
+
+        int16_t pitch; /** pitch lies in (-90, 90) deg
+                        *  rotating it 360 deg around y looks like this:              pitch
+                        *                                                90    /\      ^     - this signal is dangerous for control
+                        *                                               -90      \/    |     - rpy euler angels have a singularity at -90 deg and 90 deg
+                        *                                                               --> actual rotation */
+
+        int16_t yaw;   /** yaw lies in (0, 360) deg
+                        *  rotating it 360 deg around z looks like this: 3600      /   yaw
+                        *                                                         /     ^
+                        *                                                        /      |
+                        *                                                   0   /        --> actual rotation */
     } values;
 } attitudeEulerAngles_t;
 #define EULER_INITIALIZE  { { 0, 0, 0 } }
 
 extern attitudeEulerAngles_t attitude;
-extern float rMat[3][3];
-
+extern float rMat[3][3];                    // DCM either transforms a vector from body to earth frame, e.g. Ev        = rMat * Bv  ( <->  Bv        = rMat^T * Ev )
+                                            //         or rotates    a vector in the earth frame,       e.g. EvRotated = rMat * Ev  ( <->  BvRotated = rMat^T * Bv )
+                                            // DCM  contains in the coloums [EeBx  , EeBy  , EeBz  ]  ( basis of the body  frame w.r.t. the earth frame )
+                                            //      and      in the rows    [BeEx^T; BeEy^T, BeEz^T]  ( basis of the earth frame w.r.t. the body  frame )
+                                            //  - without a mag the mahony filter yaw estimate has drift
+                                            //  - the third row of the DCM (BeEz^T) is invariant to yaw, this is why the mahony filter can estimate roll and pitch
+                                            //    by only using an acc and a gyro
+                                            //  - the static angle offset of roll and pitch which may bee seen after rearming is acc x and y temerature drift. 
+                                            //    without an additional inertial sensor like a gnss unit it is not possible to estimate this drift
 typedef struct imuConfig_s {
     uint16_t dcm_kp;                        // DCM filter proportional gain ( x 10000)
     uint16_t dcm_ki;                        // DCM filter integral gain ( x 10000)
@@ -86,3 +109,4 @@ bool imuQuaternionHeadfreeOffsetSet(void);
 void imuQuaternionHeadfreeTransformVectorEarthToBody(t_fp_vector_def * v);
 bool shouldInitializeGPSHeading(void);
 bool isUpright(void);
+void imuGetBasisVectorEzBody(float * v);

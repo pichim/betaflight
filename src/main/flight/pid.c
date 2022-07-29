@@ -61,6 +61,12 @@
 
 #include "pid.h"
 
+//#define USE_NEW_LEVEL_CNTRL
+//#define COMPANSATE_RP_JACOBIAN // this only affects pidLevel if USE_NEW_LEVEL_CNTRL is undefined
+#if defined(USE_NEW_LEVEL_CNTRL)
+static float axisAngleSetpointCorrection[XYZ_AXIS_COUNT]; // create 3 elements, but only 2 are used currently
+#endif
+
 typedef enum {
     LEVEL_MODE_OFF = 0,
     LEVEL_MODE_R,
@@ -423,11 +429,7 @@ STATIC_UNIT_TESTED FAST_CODE_NOINLINE float calcHorizonLevelStrength()
     return constrainf(horizonLevelStrength, 0, 1);
 }
 
-// Use the FAST_CODE_NOINLINE directive to avoid this code from being inlined into ITCM RAM to avoid overflow.
-// The impact is possibly slightly slower performance on F7/H7 but they have more than enough
-// processing power that it should be a non-issue.
-STATIC_UNIT_TESTED FAST_CODE_NOINLINE float pidLevel(int axis, const pidProfile_t *pidProfile, const rollAndPitchTrims_t *angleTrim,
-                                                        float currentPidSetpoint, float horizonLevelStrength) {
+FAST_CODE_NOINLINE float pidLevelGetSetpiont(int axis, const pidProfile_t *pidProfile) {
     const float levelAngleLimit = pidProfile->levelAngleLimit;
     // calculate error angle and limit the angle to the max inclination
     // rcDeflection is in range [-1.0, 1.0]
@@ -435,16 +437,47 @@ STATIC_UNIT_TESTED FAST_CODE_NOINLINE float pidLevel(int axis, const pidProfile_
 #ifdef USE_GPS_RESCUE
     angle += gpsRescueAngle[axis] / 100; // ANGLE IS IN CENTIDEGREES
 #endif
-    angle = constrainf(angle, -levelAngleLimit, levelAngleLimit);
-    const float errorAngle = angle - ((attitude.raw[axis] - angleTrim->raw[axis]) / 10.0f);
+    return constrainf(angle, -levelAngleLimit, levelAngleLimit);
+}
+
+// Use the FAST_CODE_NOINLINE directive to avoid this code from being inlined into ITCM RAM to avoid overflow.
+// The impact is possibly slightly slower performance on F7/H7 but they have more than enough
+// processing power that it should be a non-issue.
+STATIC_UNIT_TESTED FAST_CODE_NOINLINE float pidLevel(int axis, const pidProfile_t *pidProfile, const rollAndPitchTrims_t *angleTrim,
+                                                        float currentPidSetpoint, float horizonLevelStrength) {
+    // leave it here, so the compiler is happy
+    const float angle = pidLevelGetSetpiont(axis, pidProfile);
+    const float angleActual = (attitude.raw[axis] - angleTrim->raw[axis]) / 10.0f;
+    const float errorAngle = angle - angleActual;
+    float setpointCorrection = errorAngle;
+#if !defined(USE_NEW_LEVEL_CNTRL)
+    if (axis == FD_ROLL) {
+        DEBUG_SET(DEBUG_LEVEL_CNTRL, 0, lrintf(angle * 10.0f));
+        DEBUG_SET(DEBUG_LEVEL_CNTRL, 1, lrintf(angleActual * 10.0f));
+    } else if (axis == FD_PITCH) {
+        DEBUG_SET(DEBUG_LEVEL_CNTRL, 2, lrintf(angle * 10.0f));
+        DEBUG_SET(DEBUG_LEVEL_CNTRL, 3, lrintf(angleActual * 10.0f));
+    }
+#if defined(COMPANSATE_RP_JACOBIAN)
+    // compensate roll, pitch, yaw euler angle jacobian
+    //  - since the heading is always directly rate controlled we just need the upper left block matrix
+    // JBE = [1,         0 ] adn (wx, wy) = JBE * d (roll, pitch) / dt
+    //       [0,  cos(roll)]
+    if (axis == FD_PITCH) {
+        setpointCorrection *= cos_approx(angleActual * M_PIf / 180.0f);
+    }
+#endif
+#else
+    setpointCorrection = axisAngleSetpointCorrection[axis];
+#endif
     if (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(GPS_RESCUE_MODE)) {
         // ANGLE mode - control is angle based
-        const float setpointCorrection = errorAngle * pidRuntime.levelGain;
+        setpointCorrection *= pidRuntime.levelGain;
         currentPidSetpoint = pt3FilterApply(&pidRuntime.attitudeFilter[axis], setpointCorrection);
     } else {
         // HORIZON mode - mix of ANGLE and ACRO modes
         // mix in errorAngle to currentPidSetpoint to add a little auto-level feel
-        const float setpointCorrection = errorAngle * pidRuntime.horizonGain * horizonLevelStrength;
+        setpointCorrection *= pidRuntime.horizonGain * horizonLevelStrength;
         currentPidSetpoint += pt3FilterApply(&pidRuntime.attitudeFilter[axis], setpointCorrection);
     }
     return currentPidSetpoint;
@@ -924,6 +957,57 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
 
 #ifdef USE_FEEDFORWARD
     const bool newRcFrame = getShouldUpdateFeedforward();
+#endif
+
+#if (defined(USE_ACC) && defined(USE_NEW_LEVEL_CNTRL))
+    if (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE) || gpsRescueIsActive) {
+        // get the angle setpoint as roll and pitch values
+        static float sinRoll, cosRoll, sinPitch, cosPitch;
+        sinRoll = sinPitch = 0.0f;
+        cosRoll = cosPitch = 1.0f;
+        for (int axis = FD_ROLL; axis <= FD_PITCH; ++axis) {
+            const float angle = pidLevelGetSetpiont(axis, pidProfile);
+            const float angleActual = (attitude.raw[axis] - angleTrim->raw[axis]) / 10.0f; // only for logging
+            if ((levelMode == LEVEL_MODE_R || levelMode == LEVEL_MODE_RP) && (axis == FD_ROLL)) {
+                sinRoll = sin_approx(angle * M_PIf / 180.0f);
+                cosRoll = cos_approx(angle * M_PIf / 180.0f);
+            } else if ((levelMode == LEVEL_MODE_RP) && (axis == FD_PITCH)) {
+                sinPitch = sin_approx(angle * M_PIf / 180.0f);
+                cosPitch = cos_approx(angle * M_PIf / 180.0f);
+            }
+            if (axis == FD_ROLL) {
+                DEBUG_SET(DEBUG_LEVEL_CNTRL, 0, lrintf(angle * 10.0f));
+                DEBUG_SET(DEBUG_LEVEL_CNTRL, 1, lrintf(angleActual * 10.0f));
+            } else if (axis == FD_PITCH) {
+                DEBUG_SET(DEBUG_LEVEL_CNTRL, 2, lrintf(angle * 10.0f));
+                DEBUG_SET(DEBUG_LEVEL_CNTRL, 3, lrintf(angleActual * 10.0f));
+            }
+        }
+
+        // get ez in the body frame, this is the setpoint if the stick inputs are zero
+        // ez as seen from the body is invariant to the mahony filter yaw (-heading) drift when only an acc and gyro is used
+        static float axisSetpoint[XYZ_AXIS_COUNT];
+        imuGetBasisVectorEzBody(axisSetpoint);
+
+        // rotate ez acoring to the setpoint
+        // Ry(pitch) * Rx(roll) = [ cos(pitch), sin(roll)*sin(pitch), cos(roll)*sin(pitch)]
+        //                        [          0,            cos(roll),           -sin(roll)]
+        //                        [-sin(pitch), cos(pitch)*sin(roll), cos(roll)*cos(pitch)]
+        const float axisSetpointCopy[XYZ_AXIS_COUNT] = {axisSetpoint[0], axisSetpoint[1], axisSetpoint[2]};
+        axisSetpoint[0] = cosPitch * axisSetpointCopy[0] + sinRoll * sinPitch * axisSetpointCopy[1] + cosRoll * sinPitch * axisSetpointCopy[2];
+        axisSetpoint[1] = cosRoll * axisSetpointCopy[1] - sinRoll * axisSetpointCopy[2];
+        axisSetpoint[2] = -sinPitch * axisSetpointCopy[0] + cosPitch * sinRoll * axisSetpointCopy[1] + cosRoll * cosPitch * axisSetpointCopy[2];
+
+        // calculate the axis angle error w.r.t. the body frame, by doing so we remove wz around the body z axis and only create wx and wy
+        const float errorAxisAngle = acos_approx(axisSetpoint[Z]);
+        const float axisVector[2] = {-axisSetpoint[Y], axisSetpoint[X]};
+        const float axisVectorNormSquared = sq(axisVector[X]) + sq(axisVector[Y]);
+        axisAngleSetpointCorrection[X] = axisAngleSetpointCorrection[Y] = 0.0f;
+        if ((fabsf(errorAxisAngle) >= 1e-4f) && (axisVectorNormSquared >= 1e-4f)) {
+            axisAngleSetpointCorrection[X] = errorAxisAngle * axisVector[X] / sqrtf(axisVectorNormSquared) * 180.0f / M_PIf;
+            axisAngleSetpointCorrection[Y] = errorAxisAngle * axisVector[Y] / sqrtf(axisVectorNormSquared) * 180.0f / M_PIf;
+        }
+    }
 #endif
 
     // ----------PID controller----------

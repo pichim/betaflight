@@ -710,3 +710,10 @@ bool isUpright(void)
     return true;
 #endif
 }
+
+void imuGetBasisVectorEzBody(float * v)
+{
+    v[0] = rMat[Z][0];
+    v[1] = rMat[Z][1];
+    v[2] = rMat[Z][2];
+}
