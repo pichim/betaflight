@@ -388,7 +388,7 @@ typedef struct pidRuntime_s {
 #endif
 
 #ifdef USE_ACC
-    pt3Filter_t attitudeFilter[2];  // Only for ROLL and PITCH
+    pt3Filter_t attitudeFilter[3];
 #endif
 } pidRuntime_t;
 

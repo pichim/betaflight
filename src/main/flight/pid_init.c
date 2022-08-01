@@ -237,7 +237,7 @@ void pidInitFilters(const pidProfile_t *pidProfile)
 
 #ifdef USE_ACC
     const float k = pt3FilterGain(ATTITUDE_CUTOFF_HZ, pidRuntime.dT);
-    for (int axis = 0; axis < 2; axis++) {  // ROLL and PITCH only
+    for (int axis = 0; axis < 3; axis++) {
         pt3FilterInit(&pidRuntime.attitudeFilter[axis], k);
     }
 #endif
