@@ -53,7 +53,7 @@ typedef union {
         int16_t pitch; /** pitch lies in (-90, 90) deg
                         *  rotating it 360 deg around y looks like this:              pitch
                         *                                                90    /\      ^     - this signal is dangerous for control
-                        *                                               -90      \/    |     - rpy euler angels have a singularity at -90 deg and 90 deg
+                        *                                               -90      \/    |     - rpy euler angels have a singularity at -90 and +90 deg pitch
                         *                                                               --> actual rotation */
 
         int16_t yaw;   /** yaw lies in (0, 360) deg
@@ -68,12 +68,12 @@ typedef union {
 extern attitudeEulerAngles_t attitude;
 extern float rMat[3][3];                    // DCM either transforms a vector from body to earth frame, e.g. Ev        = rMat * Bv  ( <->  Bv        = rMat^T * Ev )
                                             //         or rotates    a vector in the earth frame,       e.g. EvRotated = rMat * Ev  ( <->  BvRotated = rMat^T * Bv )
-                                            // DCM  contains in the coloums [EeBx  , EeBy  , EeBz  ]  ( basis of the body  frame w.r.t. the earth frame )
-                                            //      and      in the rows    [BeEx^T; BeEy^T, BeEz^T]  ( basis of the earth frame w.r.t. the body  frame )
+                                            // DCM  contains in the coloums [EexB  , EeyB  , EezB  ]  ( basis of the body  frame w.r.t. the earth frame )
+                                            //      and      in the rows    [BexE^T; BeyE^T; BezE^T]  ( basis of the earth frame w.r.t. the body  frame )
                                             //  - without a mag the mahony filter yaw estimate has drift
-                                            //  - the third row of the DCM (BeEz^T) is invariant to yaw, this is why the mahony filter can estimate roll and pitch
+                                            //  - the third row of the DCM (BezE^T) is invariant to yaw, this is why the mahony filter can estimate roll and pitch
                                             //    by only using an acc and a gyro
-                                            //  - the static angle offset of roll and pitch which may bee seen after rearming is acc x and y temerature drift. 
+                                            //  - the static angle offset of roll and pitch which may bee seen after rearming are changes in accx and y due to temerature drift. 
                                             //    without an additional inertial sensor like a gnss unit it is not possible to estimate this drift
 typedef struct imuConfig_s {
     uint16_t dcm_kp;                        // DCM filter proportional gain ( x 10000)

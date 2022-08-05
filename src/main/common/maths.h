@@ -33,8 +33,9 @@
 #define VERY_FAST_MATH        // order 7 approximation
 
 // Use floating point M_PI instead explicitly.
-#define M_PIf       3.14159265358979323846f
-#define M_EULERf    2.71828182845904523536f
+#define M_PIf        3.141592653589793f
+#define M_RAD2DEGf  57.295779513082323f
+#define M_DEG2RADf   0.017453292519943f
 
 #define RAD    (M_PIf / 180.0f)
 #define DEGREES_TO_DECIDEGREES(angle) ((angle) * 10)
