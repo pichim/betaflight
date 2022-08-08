@@ -102,6 +102,7 @@ typedef enum {
     DEBUG_GPS_RESCUE_HEADING,
     DEBUG_GPS_RESCUE_TRACKING,
     DEBUG_ATTITUDE,
+    DEBUG_ACC_EARTH_Z,
     DEBUG_COUNT
 } debugType_e;
 

@@ -582,6 +582,12 @@ void imuUpdateAttitude(timeUs_t currentTimeUs)
 
     DEBUG_SET(DEBUG_ATTITUDE, X, acc.accADC[X]);
     DEBUG_SET(DEBUG_ATTITUDE, Y, acc.accADC[Y]);
+
+    // scale acc to cm^2/sec^2
+    DEBUG_SET(DEBUG_ACC_EARTH_Z, 0, lrintf( acc.accADC[X] * acc.dev.acc_1G_rec * 981));
+    DEBUG_SET(DEBUG_ACC_EARTH_Z, 1, lrintf( acc.accADC[Y] * acc.dev.acc_1G_rec * 981));
+    DEBUG_SET(DEBUG_ACC_EARTH_Z, 2, lrintf( acc.accADC[Z] * acc.dev.acc_1G_rec * 981));
+    DEBUG_SET(DEBUG_ACC_EARTH_Z, 3, lrintf( imuRotationmatrixTransformBodyToEarthZ(acc.accADC) * acc.dev.acc_1G_rec * 981));
 }
 #endif // USE_ACC
 
@@ -709,4 +715,9 @@ bool isUpright(void)
 #else
     return true;
 #endif
+}
+
+float imuRotationmatrixTransformBodyToEarthZ(float * v)
+{
+    return rMat[Z][X] * v[X] + rMat[Z][Y] * v[Y] + rMat[Z][Z] * v[Z];
 }
