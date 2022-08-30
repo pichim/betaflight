@@ -72,11 +72,11 @@
 #define COMPANSATE_RP_JACOBIAN
 
 #define USE_NEW_LEVEL_CNTRL
-// carefull here: only han of the following is allowed to be defined!
-// those only affect pidLevel if USE_NEW_LEVEL_CNTRL is defined
-//#define USE_RyRx_MAP_FOR_NEW_LEVEL_CNTRL      
-//#define USE_RxRy_MAP_FOR_NEW_LEVEL_CNTRL
-#define USE_HALF_SPHERE_MAP_FOR_NEW_LEVEL_CNTRL
+// carefull here: only one of the following is allowed to be defined
+//                those only affect pidLevel if USE_NEW_LEVEL_CNTRL is defined
+#define USE_RyRx_MAP_FOR_NEW_LEVEL_CNTRL         // this corresponds to master
+//#define USE_RxRy_MAP_FOR_NEW_LEVEL_CNTRL         // this is swapped to master
+//#define USE_HALF_SPHERE_MAP_FOR_NEW_LEVEL_CNTRL  // this is the stick is aligning with gravity mode
 
 // member variable to pass rate setpoints
 #if defined(USE_NEW_LEVEL_CNTRL)
@@ -480,7 +480,7 @@ STATIC_UNIT_TESTED FAST_CODE_NOINLINE float pidLevel(int axis, const pidProfile_
 #if defined(COMPANSATE_RP_JACOBIAN)
     // compensate roll, pitch, yaw euler angle jacobian
     //  - since the heading is always directly rate controlled we just need the upper left block matrix
-    // JBE = [1,         0 ] adn (wx, wy) = JBE * d (roll, pitch) / dt
+    // JBE = [1,         0 ] and (wx, wy) = JBE * d (roll, pitch) / dt
     //       [0,  cos(roll)]
     if (axis == FD_PITCH) {
         setpointCorrection *= cos_approx(angleActual * M_DEG2RADf);
@@ -984,8 +984,8 @@ angleSetpointRoll = angleSetpointPitch = 0.0f; // in case the user is flying acr
     if (FLIGHT_MODE(ANGLE_MODE)) {
 
         /**
-         * Simulations have shown that for stable controll especially for EezB not close to (0, 0, 1) it is necessary to allow the level
-         * controller to not only apply rated around the quads x and y but also z axis (which makes sense). The question now is how to
+         * Simulations have shown that for stable control especially for EezB not close to (0, 0, 1) it is necessary to allow the level
+         * controller to not only apply rates around the quads x and y but also z axis (which makes sense). The question now is how to
          * encode resp. desing setpoints so that the user has a fun flight feeling.
          */
 
@@ -1023,7 +1023,7 @@ angleSetpointRoll = angleSetpointPitch = 0.0f; // in case the user is flying acr
         #endif // USE_RyRx_MAP_FOR_NEW_LEVEL_CNTRL
 
         #if defined(USE_RxRy_MAP_FOR_NEW_LEVEL_CNTRL) && (!defined(USE_RyRx_MAP_FOR_NEW_LEVEL_CNTRL) && !defined(USE_HALF_SPHERE_MAP_FOR_NEW_LEVEL_CNTRL))
-        // setpoint is encoded as roll pitch values (like the old level controller, if setpoint pitch is 90 deg you can not roll anymore)
+        // setpoint is encoded as pitch roll values (if setpoint roll is 90 deg you can not pitch anymore)
         static float sinRoll, cosRoll, sinPitch, cosPitch, dRoll, dPitch;
         sinRoll = sinPitch = 0.0f;
         cosRoll = cosPitch = 1.0f;
