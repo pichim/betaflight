@@ -710,3 +710,19 @@ bool isUpright(void)
     return true;
 #endif
 }
+
+float imuRotationmatrixTransformAccBodyToEarthZ(void)
+{
+    const float accBody[3] = {acc.accADC[X] * acc.dev.acc_1G_rec * 981.0f,
+                              acc.accADC[Y] * acc.dev.acc_1G_rec * 981.0f,
+                              acc.accADC[Z] * acc.dev.acc_1G_rec * 981.0f};
+    return rMat[Z][X] * accBody[X] + rMat[Z][Y] * accBody[Y] + rMat[Z][Z] * accBody[Z];
+}
+
+float imuRotationmatrixTransformAccBodyToEarthAndRemoveBiasZ(float accBiasZ)
+{
+    const float accBody[3] = {acc.accADC[X] * acc.dev.acc_1G_rec * 981.0f,
+                              acc.accADC[Y] * acc.dev.acc_1G_rec * 981.0f,
+                              acc.accADC[Z] * acc.dev.acc_1G_rec * 981.0f};
+    return rMat[Z][X] * accBody[X] + rMat[Z][Y] * accBody[Y] + rMat[Z][Z] * (accBody[Z] - accBiasZ);
+}

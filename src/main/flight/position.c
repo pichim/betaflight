@@ -47,9 +47,12 @@
 #include "pg/pg.h"
 #include "pg/pg_ids.h"
 
+#include "common/position_estimator.h"
+
 static int32_t estimatedAltitudeCm = 0;                // in cm
 #ifdef USE_BARO
     static pt2Filter_t baroDerivativeLpf;
+    static positionEstimator_t positionEstimatorZ;
 #endif
 
 typedef enum {
@@ -86,6 +89,7 @@ void calculateEstimatedAltitude()
     static float gpsAltOffset = 0;
 
     float baroAlt = 0;
+    float accZ = 0; // just for logging, offline data analysis can also be done with the unrotated value
     float baroAltVelocity = 0;
     float gpsAlt = 0;
     uint8_t gpsNumSat = 0;
@@ -105,12 +109,27 @@ void calculateEstimatedAltitude()
             const float sampleTimeS = HZ_TO_INTERVAL(TASK_ALTITUDE_RATE_HZ);
             const float gain = pt2FilterGain(cutoffHz, sampleTimeS);
             pt2FilterInit(&baroDerivativeLpf, gain);
+
+            // initialise position z (altitude) estimator
+            const float f_cut = 0.2f;
+            const float f_a = 0.0f;
+            const uint8_t positionDiscreteDelay = 9; // i assume that position.c is running at 120 Hz
+            positionEstimatorUpdateGain(&positionEstimatorZ, f_cut, f_a, sampleTimeS);
+            positionEstimatorInit(&positionEstimatorZ, 0.0f, 0.0f, 0.0f, positionDiscreteDelay);
+
             initBaroFilter = true;
         }
         baroAlt = baroUpsampleAltitude();
         const float baroAltVelocityRaw = (baroAlt - lastBaroAlt) * TASK_ALTITUDE_RATE_HZ; // cm/s
         baroAltVelocity = pt2FilterApply(&baroDerivativeLpf, baroAltVelocityRaw);
         lastBaroAlt = baroAlt;
+
+        // update position z estimator, baroUpsampleAltitude2 uses a different staticly set cutoff
+        accZ = imuRotationmatrixTransformAccBodyToEarthZ();
+        //const float accBiasFreeZ = imuRotationmatrixTransformAccBodyToEarthAndRemoveBiasZ(positionEstimatorZ.a33 * positionEstimatorZ.accBias) - 981.0f;
+        const float accBiasFreeZ = accZ - positionEstimatorZ.a33 * positionEstimatorZ.accBias - 981.0f; // here we substract the bias from accZ w.r.t. the earth frame
+        positionEstimatorApply(&positionEstimatorZ, accBiasFreeZ, baroAlt);
+        
         if (baroIsCalibrated()) {
             haveBaroAlt = true;
         }
@@ -141,6 +160,7 @@ void calculateEstimatedAltitude()
         altitudeOffsetSetBaro = false;
     }
 
+    baroAltOffset = 0.0f; // set this temporarly to zero
     baroAlt -= baroAltOffset;
 
     int goodGpsSats = 0;
@@ -197,6 +217,12 @@ void calculateEstimatedAltitude()
 #ifdef USE_VARIO
     DEBUG_SET(DEBUG_ALTITUDE, 3, estimatedVario);
 #endif
+
+    DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 0, accZ);
+    DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 1, baroAlt);
+    DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 2, positionEstimatorZ.position - baroAltOffset);
+    DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 3, positionEstimatorZ.velocity);
+
 }
 
 bool isAltitudeOffset(void)

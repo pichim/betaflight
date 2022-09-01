@@ -169,7 +169,9 @@ void baroInit(void)
 {
     baroDetect(&baro.dev, barometerConfig()->baro_hardware);
 
-    const float cutoffHz = barometerConfig()->baro_noise_lpf / 100.0f;
+    // the position estimator has some inherent low pass so we set the cutoff higher
+    //const float cutoffHz = barometerConfig()->baro_noise_lpf / 100.0f;
+    const float cutoffHz = 6.0f;
     const float sampleTimeS = HZ_TO_INTERVAL(TASK_ALTITUDE_RATE_HZ);
     const float gain = pt2FilterGain(cutoffHz, sampleTimeS);
     pt2FilterInit(&baroUpsampleLpf, gain);
