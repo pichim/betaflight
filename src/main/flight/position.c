@@ -165,13 +165,13 @@ void calculateEstimatedAltitude()
                 // f_a:   eigendynamics of bias, zero corresponds to a pure integrator, for x-y position estimates this will not be zero
                 const float f_cut = 0.1f;
                 const float f_a = 0.0f;
-                positionEstimatorUpdateGain(&positionEstimatorZ, f_cut, f_a);
+                positionEstimatorUpdateGain(&positionEstimatorZ, f_cut, f_a, dT);
                 arePositionEstimatorsInitialised = true;
             }
 
             // run position estimators
             accZ = imuRotationmatrixTransformAccBodyToEarthZ();
-            const float accBiasFreeZ = imuRotationmatrixTransformAccBodyToEarthAndRemoveBiasZ(positionEstimatorZ.accBias) - 981.0f; // cm/s^2
+            const float accBiasFreeZ = imuRotationmatrixTransformAccBodyToEarthAndRemoveBiasZ(positionEstimatorZ.a33 * positionEstimatorZ.accBias) - 981.0f; // cm/s^2
             //const float accBiasFreeZ = accZ - positionEstimatorZ.accBias - 981.0f; // here we substract the bias from accZ w.r.t. the earth frame
             positionEstimatorApply(&positionEstimatorZ, accBiasFreeZ, baroAlt, dT);
         }

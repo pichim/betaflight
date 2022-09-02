@@ -3,22 +3,28 @@
 #include <math.h>
 #include "maths.h"
 
-void positionEstimatorUpdateGain(positionEstimator_t *positionEstimator, float f_cut, float f_a)
+void positionEstimatorUpdateGain(positionEstimator_t *positionEstimator, float f_cut, float f_a, float dT)
 {
-    positionEstimatorUpdateGainComplexPoles(positionEstimator, f_cut, f_cut, 0.5f, f_a);
-}
+    // define location of discrete poles
+    const float k = dT / (1.0f / (2.0f*M_PIf*f_cut) + dT);
+    const float w1 = k - 1.0f;
+    const float w2 = w1;
+    const float w3 = w1;
 
-void positionEstimatorUpdateGainComplexPoles(positionEstimator_t *positionEstimator, float filterFreq1, float filterFreq2, float Q2, float f_a)
-{
     const float wa = 2.0f * M_PIf * f_a;
-    positionEstimator->wa = wa;
+    const float a33 = 1.0f / (dT*wa + 1.0f);
+    positionEstimator->a33 = a33;
 
-    // time continous estimator / observer gain
-    const float w1 = 2.0f * M_PIf * filterFreq1;
-    const float w2 = 2.0f * M_PIf * filterFreq2;
-    positionEstimator->k1 = w1 + w2 / Q2 - wa;
-    positionEstimator->k2 = w2 * (w2 + w1 / Q2) - positionEstimator->k1 * wa;
-    positionEstimator->k3 = positionEstimator->k2 * wa - w1 * w2 * w2;
+    // time discrete estimator / observer gain
+    const float c1 = 1.0f - (w1*w2 + w1*w3 + w2*w3);
+    const float k1 = (w1 * w2 * w3) / a33 + 1.0f;
+    const float c2 = (c1 - k1) / (dT*a33);   
+    const float k2 = c2 + (2.0f - k1) / dT;
+    const float k3 = (c2 / a33 - ((w1 + w2 + w3) / a33 + 1.0f) / dT) / dT;
+    positionEstimator->k1 = k1;
+    positionEstimator->k2 = k2;
+    positionEstimator->k3 = k3;
+
 }
 
 void positionEstimatorInit(positionEstimator_t *positionEstimator, float position, float velocity, float accBias, uint8_t positionDiscreteDelay)
@@ -38,20 +44,20 @@ void positionEstimatorInit(positionEstimator_t *positionEstimator, float positio
 
 void positionEstimatorApply(positionEstimator_t *positionEstimator, float acc, float position, float dT)
 {
-    // predict position, velocity and accBias
-    positionEstimator->position += dT * (positionEstimator->velocity + 0.5f * acc * dT);
-    positionEstimator->velocity += dT * acc;
-    positionEstimator->accBias += dT * -positionEstimator->wa * positionEstimator->accBias;
-
     // update delayed position estimation
-    positionEstimator->positionPast[positionEstimator->positionPastIndex] = positionEstimator->position;
+    positionEstimator->positionPast[positionEstimator->positionPastIndex] = positionEstimator->position + dT * (positionEstimator->velocity + dT * acc);
     positionEstimator->positionPastIndex++;
     if (positionEstimator->positionPastIndex > positionEstimator->positionDiscreteDelay) {
         positionEstimator->positionPastIndex = 0;
     }
 
+    // predict position, velocity and accBias
+    positionEstimator->position += dT * (positionEstimator->velocity + dT * acc);
+    positionEstimator->velocity += dT * acc;
+    positionEstimator->accBias = positionEstimator->a33 * positionEstimator->accBias;
+
     // correction based on delayed position estimate
-    const float estimationError = dT * (position - positionEstimator->positionPast[positionEstimator->positionPastIndex]);
+    const float estimationError = position - positionEstimator->positionPast[positionEstimator->positionPastIndex];
     positionEstimator->position += positionEstimator->k1 * estimationError;
     positionEstimator->velocity += positionEstimator->k2 * estimationError;
     positionEstimator->accBias += positionEstimator->k3 * estimationError;
