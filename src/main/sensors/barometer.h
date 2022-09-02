@@ -72,5 +72,5 @@ void baroSetGroundLevel(void);
 uint32_t baroUpdate(timeUs_t currentTimeUs);
 bool isBaroReady(void);
 bool isBaroSampleReady(void);
-float baroUpsampleAltitude(void);
+float baroUpsampleAltitude(float dT);
 void performBaroCalibrationCycle(void);

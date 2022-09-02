@@ -146,7 +146,7 @@ static int32_t baroTemperature = 0;
 static float baroGroundAltitude = 0.0f;
 static float baroAltitudeRaw = 0.0f;
 static pt2Filter_t baroUpsampleLpf;
-
+static float baroUpsampleLpfCutoffHz = 1.0f; // ToDo: tune this parameter when used with the position estimator
 
 #define CALIBRATING_BARO_CYCLES 100 // 10 seconds init_delay + 200 * 25 ms = 15 seconds before ground pressure settles
 #define SET_GROUND_LEVEL_BARO_CYCLES 10 // calibrate baro to new ground level (10 * 25 ms = ~250 ms non blocking)
@@ -169,12 +169,8 @@ void baroInit(void)
 {
     baroDetect(&baro.dev, barometerConfig()->baro_hardware);
 
-    // the position estimator has some inherent low pass so we set the cutoff higher
-    //const float cutoffHz = barometerConfig()->baro_noise_lpf / 100.0f;
-    const float cutoffHz = 6.0f;
-    const float sampleTimeS = HZ_TO_INTERVAL(TASK_ALTITUDE_RATE_HZ);
-    const float gain = pt2FilterGain(cutoffHz, sampleTimeS);
-    pt2FilterInit(&baroUpsampleLpf, gain);
+    // the position estimator has some inherent low pass so I set the cutoff higher and as a static variable
+    pt2FilterInit(&baroUpsampleLpf, pt2FilterGain(baroUpsampleLpfCutoffHz, HZ_TO_INTERVAL(TASK_ALTITUDE_RATE_HZ)));
 
     baroReady = true;
 }
@@ -464,8 +460,9 @@ uint32_t baroUpdate(timeUs_t currentTimeUs)
 }
 
 // baroAltitudeRaw will get updated in the BARO task while baroUpsampleAltitude() will run in the ALTITUDE task.
-float baroUpsampleAltitude(void)
+float baroUpsampleAltitude(float dT)
 {
+    pt2FilterUpdateCutoff(&baroUpsampleLpf, pt2FilterGain(baroUpsampleLpfCutoffHz, dT));
     const float baroAltitudeRawFiltered = pt2FilterApply(&baroUpsampleLpf, baroAltitudeRaw);
     if (baroIsCalibrated()) {
         baro.BaroAlt = baroAltitudeRawFiltered - baroGroundAltitude;

@@ -105,4 +105,5 @@ const char * const debugModeNames[DEBUG_COUNT] = {
     "GPS_RESCUE_TRACKING",
     "ATTITUDE",
     "POSITION_ESTIMATOR_Z",
+    "COMPARE_ALTITUDE_FILTERS",
 };

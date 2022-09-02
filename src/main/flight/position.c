@@ -49,10 +49,13 @@
 
 #include "common/position_estimator.h"
 
+#include "drivers/time.h"
+
 static int32_t estimatedAltitudeCm = 0;                // in cm
 #ifdef USE_BARO
     static pt2Filter_t baroDerivativeLpf;
-    static positionEstimator_t positionEstimatorZ;
+    static float baroDerivativeLpfCutoffHz = 0.1f;
+    static positionEstimator_t positionEstimatorZ = {.position = 0.0f, .velocity = 0.0f}; // cm, cm/s
 #endif
 
 typedef enum {
@@ -85,6 +88,7 @@ static bool altitudeOffsetSetGPS = false;
 
 void calculateEstimatedAltitude()
 {
+    static timeUs_t previousTimeUs = 0;
     static float baroAltOffset = 0;
     static float gpsAltOffset = 0;
 
@@ -102,37 +106,76 @@ void calculateEstimatedAltitude()
     bool haveGpsAlt = false;
 #ifdef USE_BARO
     if (sensors(SENSOR_BARO)) {
-        static float lastBaroAlt = 0;
-        static bool initBaroFilter = false;
-        if (!initBaroFilter) {
-            const float cutoffHz = barometerConfig()->baro_vario_lpf / 100.0f;
-            const float sampleTimeS = HZ_TO_INTERVAL(TASK_ALTITUDE_RATE_HZ);
-            const float gain = pt2FilterGain(cutoffHz, sampleTimeS);
-            pt2FilterInit(&baroDerivativeLpf, gain);
 
-            // initialise position z (altitude) estimator
-            const float f_cut = 0.2f;
-            const float f_a = 0.0f;
-            const uint8_t positionDiscreteDelay = 9; // i assume that position.c is running at 120 Hz
-            positionEstimatorUpdateGain(&positionEstimatorZ, f_cut, f_a, sampleTimeS);
-            positionEstimatorInit(&positionEstimatorZ, 0.0f, 0.0f, 0.0f, positionDiscreteDelay);
+        // since blackbox files showed updaterates between 117 - 125 Hz instead of 120 Hz I adjust the filters and the estimator based on the actual time
+        const timeUs_t currentTimeUs = micros();
+        const timeDelta_t deltaTimeUs = cmpTimeUs(currentTimeUs, previousTimeUs);
+        previousTimeUs = currentTimeUs;
+        float dT = deltaTimeUs * 1e-6f;
 
-            initBaroFilter = true;
+        // make sure dT is not zero for the first run, this is necessary since we divide by dT for the derivative filter
+        static bool isFirstUpdate = true;
+        if (isFirstUpdate) {
+            dT = HZ_TO_INTERVAL(TASK_ALTITUDE_RATE_HZ);
+            isFirstUpdate = false;
         }
-        baroAlt = baroUpsampleAltitude();
-        const float baroAltVelocityRaw = (baroAlt - lastBaroAlt) * TASK_ALTITUDE_RATE_HZ; // cm/s
-        baroAltVelocity = pt2FilterApply(&baroDerivativeLpf, baroAltVelocityRaw);
+
+        // run upsampling filter
+        baroAlt = baroUpsampleAltitude(dT); // cm
+
+        // initialise baro derivative filter
+        static bool isBaroDerivativeFilterInitialised = false;
+        if (!isBaroDerivativeFilterInitialised) {
+            pt2FilterInit(&baroDerivativeLpf, pt2FilterGain(baroDerivativeLpfCutoffHz, dT));
+            isBaroDerivativeFilterInitialised = true;
+        }
+
+        // run baro derivative filter
+        static float lastBaroAlt = 0;
+        pt2FilterUpdateCutoff(&baroDerivativeLpf, pt2FilterGain(baroDerivativeLpfCutoffHz, dT));
+        baroAltVelocity = pt2FilterApply(&baroDerivativeLpf, (baroAlt - lastBaroAlt) / dT); // cm/s
         lastBaroAlt = baroAlt;
 
-        // update position z estimator, baroUpsampleAltitude2 uses a different staticly set cutoff
-        accZ = imuRotationmatrixTransformAccBodyToEarthZ();
-        //const float accBiasFreeZ = imuRotationmatrixTransformAccBodyToEarthAndRemoveBiasZ(positionEstimatorZ.a33 * positionEstimatorZ.accBias) - 981.0f;
-        const float accBiasFreeZ = accZ - positionEstimatorZ.a33 * positionEstimatorZ.accBias - 981.0f; // here we substract the bias from accZ w.r.t. the earth frame
-        positionEstimatorApply(&positionEstimatorZ, accBiasFreeZ, baroAlt);
-        
         if (baroIsCalibrated()) {
             haveBaroAlt = true;
         }
+
+        if(haveBaroAlt) {
+            // initialise position estimators
+            static bool arePositionEstimatorsInitialised = false;
+            if (!arePositionEstimatorsInitialised) {
+                // positionDiscreteDelay: discrete time shift of position estimator / observer, ToDo: tune this parameter
+                //                        can be used to compensate for delay that is applied due to prefiltering of baro,
+                //                        position.c should be running at a constant update rate if this feature wants to be used.
+                //                        this should be tuned based on the phase plot of the prefiltering (bf and sensor internal),
+                //                        just approximalte the phase loss with a pure time delay, e.g. for a pt2 with cutoff at 2 Hz this
+                //                        is approximately 12 samples delay. but: this is somewhat like applying a bit of derivative to the
+                //                        position estimate, so it will lead to overshoot and could make the filter unstable if unreasonably high.
+                const uint8_t positionDiscreteDelay = 12;
+                // best guess of actual states, it is assumed that the craft is on the ground during this process, this could also be done after the baro calibration
+                // is finished and baro has its first valid value when rearming
+                const float accBiasZ = imuRotationmatrixTransformAccBodyToEarthZ() - 981.0f;
+                positionEstimatorInit(&positionEstimatorZ, baroAlt, 0.0f, accBiasZ, positionDiscreteDelay);
+                // f_cut: cutoff frequency, this will be a value between 0.10 - 0.30 Hz (or something), ToDo: tune this parameter, make this dependent on setpoint
+                //        this should be adjusted based on the setpoint dynamics: no    setpoint change -> f_cut small , e.g. 0.10 Hz
+                //                                                                large setpoint change -> f_cut bigger, e.g. 0.30 Hz, quadratic or exp could be used
+                //                                     position estimator is not running in closed loop -> f_cut big   , e.g. 1.00 Hz
+                //        transient slow switch-on behaviour can be accelerated with temprarily high values, e.g. f_cut = 1.00 Hz
+                //        this parameter also decides on how much noise of the position and acc is within the estimate.
+                // f_a:   eigendynamics of bias, zero corresponds to a pure integrator, for x-y position estimates this will not be zero
+                const float f_cut = 0.1f;
+                const float f_a = 0.0f;
+                positionEstimatorUpdateGain(&positionEstimatorZ, f_cut, f_a);
+                arePositionEstimatorsInitialised = true;
+            }
+
+            // run position estimators
+            accZ = imuRotationmatrixTransformAccBodyToEarthZ();
+            const float accBiasFreeZ = imuRotationmatrixTransformAccBodyToEarthAndRemoveBiasZ(positionEstimatorZ.accBias) - 981.0f; // cm/s^2
+            //const float accBiasFreeZ = accZ - positionEstimatorZ.accBias - 981.0f; // here we substract the bias from accZ w.r.t. the earth frame
+            positionEstimatorApply(&positionEstimatorZ, accBiasFreeZ, baroAlt, dT);
+        }
+        
     }
 #endif
 
@@ -160,7 +203,6 @@ void calculateEstimatedAltitude()
         altitudeOffsetSetBaro = false;
     }
 
-    baroAltOffset = 0.0f; // set this temporarly to zero
     baroAlt -= baroAltOffset;
 
     int goodGpsSats = 0;
@@ -220,8 +262,13 @@ void calculateEstimatedAltitude()
 
     DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 0, accZ);
     DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 1, baroAlt);
-    DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 2, positionEstimatorZ.position - baroAltOffset);
+    DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 2, positionEstimatorZ.position - baroAltOffset); // remove arming offset
     DEBUG_SET(DEBUG_POSITION_ESTIMATOR_Z, 3, positionEstimatorZ.velocity);
+
+    DEBUG_SET(DEBUG_COMPARE_ALTITUDE_FILTERS, 0, baroAlt);
+    DEBUG_SET(DEBUG_COMPARE_ALTITUDE_FILTERS, 1, baroAltVelocity);
+    DEBUG_SET(DEBUG_COMPARE_ALTITUDE_FILTERS, 2, positionEstimatorZ.position - baroAltOffset); // remove arming offset
+    DEBUG_SET(DEBUG_COMPARE_ALTITUDE_FILTERS, 3, positionEstimatorZ.velocity);
 
 }
 
