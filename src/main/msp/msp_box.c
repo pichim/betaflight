@@ -68,7 +68,7 @@ static const box_t boxes[CHECKBOX_ITEM_COUNT] = {
 //    { .boxId = BOXGOV, .boxName = "GOVERNOR", .permanentId = 18 }, (removed)
     { .boxId = BOXOSD, .boxName = "OSD DISABLE", .permanentId = 19 },
     { .boxId = BOXTELEMETRY, .boxName = "TELEMETRY", .permanentId = 20 },
-//    { .boxId = BOXGTUNE, .boxName = "GTUNE", .permanentId = 21 }, (removed)
+    { .boxId = BOXEXCITATION, .boxName = "EXCITATION", .permanentId = 21 },
 //    { .boxId = BOXRANGEFINDER, .boxName = "RANGEFINDER", .permanentId = 22 }, (removed)
     { .boxId = BOXSERVO1, .boxName = "SERVO1", .permanentId = 23 },
     { .boxId = BOXSERVO2, .boxName = "SERVO2", .permanentId = 24 },
@@ -337,6 +337,8 @@ void initActiveBoxIds(void)
 
     BME(BOXSTICKCOMMANDDISABLE);
     BME(BOXREADY);
+
+    BME(BOXEXCITATION);
 
 #undef BME
     // check that all enabled IDs are in boxes array (check may be skipped when using findBoxById() functions)

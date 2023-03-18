@@ -402,6 +402,8 @@ void crsfFrameFlightMode(sbuf_t *dst)
         flightMode = "HOR";
     } else if (airmodeIsEnabled()) {
         flightMode = "AIR";
+    } else if (FLIGHT_MODE(EXCITATION_MODE)) {
+        flightMode = "EXC";
     }
 
     sbufWriteString(dst, flightMode);

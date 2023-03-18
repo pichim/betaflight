@@ -1006,6 +1006,8 @@ static void osdElementFlymode(osdElementParms_t *element)
         strcpy(element->buff, "ATRN");
     } else if (airmodeIsEnabled()) {
         strcpy(element->buff, "AIR ");
+    } else if (FLIGHT_MODE(EXCITATION_MODE)) {
+        strcpy(element->buff, "EXC ");
     } else {
         strcpy(element->buff, "ACRO");
     }

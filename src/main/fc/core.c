@@ -996,6 +996,20 @@ void processRxModes(timeUs_t currentTimeUs)
     }
 #endif
 
+    /** ToDo EXCITATION_MODE:
+     * - excitation mode should only be executed if in acro, horizon or angle mode
+     * - use the switch to also alter excitation channel, e.g. roll, pitch or yaw axis
+     * - excitation mode should only be entered when flying (armed and flying)
+     */
+    if (IS_RC_MODE_ACTIVE(BOXEXCITATION) && !FLIGHT_MODE(GPS_RESCUE_MODE)) {
+
+        if (!FLIGHT_MODE(EXCITATION_MODE)) {
+            ENABLE_FLIGHT_MODE(EXCITATION_MODE);
+        }
+    } else {
+        DISABLE_FLIGHT_MODE(EXCITATION_MODE);
+    }
+
     if (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE)) {
         LED1_ON;
         // increase frequency of attitude task to reduce drift when in angle or horizon mode
