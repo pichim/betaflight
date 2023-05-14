@@ -1367,6 +1367,7 @@ static bool blackboxWriteSysinfo(void)
 #ifdef USE_DYN_LPF
         BLACKBOX_PRINT_HEADER_LINE("dterm_lpf1_dyn_hz", "%d,%d",            currentPidProfile->dterm_lpf1_dyn_min_hz,
                                                                             currentPidProfile->dterm_lpf1_dyn_max_hz);
+        BLACKBOX_PRINT_HEADER_LINE("dterm_lpf1_dyn_expo", "%d",             currentPidProfile->dterm_lpf1_dyn_expo);
 #endif
         BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_DTERM_LPF2_TYPE, "%d",        currentPidProfile->dterm_lpf2_type);
         BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_DTERM_LPF2_STATIC_HZ, "%d",   currentPidProfile->dterm_lpf2_static_hz);
@@ -1414,6 +1415,16 @@ static bool blackboxWriteSysinfo(void)
         BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_ACC_LIMIT, "%d",              currentPidProfile->rateAccelLimit);
         BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_PIDSUM_LIMIT, "%d",           currentPidProfile->pidSumLimit);
         BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_PIDSUM_LIMIT_YAW, "%d",       currentPidProfile->pidSumLimitYaw);
+#ifdef USE_CHIRP
+        BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_CHIRP_LAG_FREQ_HZ, "%d",             currentPidProfile->chirp_lag_freq_hz);
+        BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_CHIRP_LEAD_FREQ_HZ, "%d",            currentPidProfile->chirp_lead_freq_hz);
+        BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_CHIRP_AMPLITUDE_ROLL, "%d",          currentPidProfile->chirp_amplitude_roll);
+        BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_CHIRP_AMPLITUDE_PITCH, "%d",         currentPidProfile->chirp_amplitude_pitch);
+        BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_CHIRP_AMPLITUDE_YAW, "%d",           currentPidProfile->chirp_amplitude_yaw);
+        BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_CHIRP_FREQUENCY_START_DECI_HZ, "%d", currentPidProfile->chirp_frequency_start_deci_hz);
+        BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_CHIRP_FREQUENCY_END_DECI_HZ, "%d",   currentPidProfile->chirp_frequency_end_deci_hz);
+        BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_CHIRP_TIME_SECONDS, "%d",            currentPidProfile->chirp_time_seconds);
+#endif
         // End of Betaflight controller parameters
 
         BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_DEADBAND, "%d",               rcControlsConfig()->deadband);
@@ -1425,6 +1436,7 @@ static bool blackboxWriteSysinfo(void)
 #ifdef USE_DYN_LPF
         BLACKBOX_PRINT_HEADER_LINE("gyro_lpf1_dyn_hz", "%d,%d",             gyroConfig()->gyro_lpf1_dyn_min_hz,
                                                                             gyroConfig()->gyro_lpf1_dyn_max_hz);
+        BLACKBOX_PRINT_HEADER_LINE("gyro_lpf1_dyn_expo", "%d",              gyroConfig()->gyro_lpf1_dyn_expo);
 #endif
         BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_GYRO_LPF2_TYPE, "%d",         gyroConfig()->gyro_lpf2_type);
         BLACKBOX_PRINT_HEADER_LINE(PARAM_NAME_GYRO_LPF2_STATIC_HZ, "%d",    gyroConfig()->gyro_lpf2_static_hz);
