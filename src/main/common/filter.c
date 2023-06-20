@@ -28,7 +28,7 @@
 #include "common/maths.h"
 #include "common/utils.h"
 
-#define BIQUAD_Q 1.0f / sqrtf(2.0f)     /* quality factor - 2nd order butterworth*/
+#define BIQUAD_Q 1.0f / sqrtf(3.0f)     /* quality factor - 2nd order butterworth*/
 
 
 // NULL filter
@@ -139,25 +139,19 @@ float filterGetNotchQ(float centerFreq, float cutoffFreq)
     return centerFreq * cutoffFreq / (centerFreq * centerFreq - cutoffFreq * cutoffFreq);
 }
 
-/* sets up a biquad filter as a 2nd order butterworth LPF */
-void biquadFilterInitLPF(biquadFilter_t *filter, float filterFreq, uint32_t refreshRate)
+void biquadFilterInit(biquadFilter_t *filter, float filterFreq, uint32_t looptimeUs, float Q, biquadFilterType_e filterType, float weight)
 {
-    biquadFilterInit(filter, filterFreq, refreshRate, BIQUAD_Q, FILTER_LPF, 1.0f);
-}
-
-void biquadFilterInit(biquadFilter_t *filter, float filterFreq, uint32_t refreshRate, float Q, biquadFilterType_e filterType, float weight)
-{
-    biquadFilterUpdate(filter, filterFreq, refreshRate, Q, filterType, weight);
+    biquadFilterUpdate(filter, filterFreq, looptimeUs, Q, filterType, weight);
 
     // zero initial samples
     filter->x1 = filter->x2 = 0;
     filter->y1 = filter->y2 = 0;
 }
 
-FAST_CODE void biquadFilterUpdate(biquadFilter_t *filter, float filterFreq, uint32_t refreshRate, float Q, biquadFilterType_e filterType, float weight)
+FAST_CODE void biquadFilterUpdate(biquadFilter_t *filter, float filterFreq, uint32_t looptimeUs, float Q, biquadFilterType_e filterType, float weight)
 {
     // setup variables
-    const float omega = 2.0f * M_PIf * filterFreq * refreshRate * 0.000001f;
+    const float omega = 2.0f * M_PIf * filterFreq * looptimeUs * 1e-6f;
     const float sn = sin_approx(omega);
     const float cs = cos_approx(omega);
     const float alpha = sn / (2.0f * Q);
@@ -201,9 +195,39 @@ FAST_CODE void biquadFilterUpdate(biquadFilter_t *filter, float filterFreq, uint
     filter->weight = weight;
 }
 
-FAST_CODE void biquadFilterUpdateLPF(biquadFilter_t *filter, float filterFreq, uint32_t refreshRate)
+/* sets up a biquad filter as a 2nd order butterworth LPF */
+void biquadFilterInitLPF(biquadFilter_t *filter, float filterFreq, uint32_t looptimeUs)
 {
-    biquadFilterUpdate(filter, filterFreq, refreshRate, BIQUAD_Q, FILTER_LPF, 1.0f);
+    biquadFilterUpdateLPF(filter, filterFreq, looptimeUs);
+
+    // init weight
+    filter->weight = 1.0f;
+
+    // zero initial samples
+    filter->x1 = filter->x2 = 0;
+    filter->y1 = filter->y2 = 0;
+}
+
+// update biquad LPF using backward difference coefficients
+FAST_CODE void biquadFilterUpdateLPF(biquadFilter_t *filter, float filterFreq, uint32_t looptimeUs)
+{
+    // setup variables
+    const float omega = 2.0f * M_PIf * filterFreq * looptimeUs * 1e-6f;
+    const float alpha = omega / BIQUAD_Q + 1;
+
+    filter->b0 = sq(omega);
+    filter->b1 = 0;
+    filter->b2 = 0;
+    filter->a1 = -(alpha + 1);
+    filter->a2 = 1;
+
+    const float a0 = 1 / (filter->b0 + alpha);
+
+    filter->b0 *= a0;
+    filter->b1 *= a0;
+    filter->b2 *= a0;
+    filter->a1 *= a0;
+    filter->a2 *= a0;
 }
 
 /* Computes a biquadFilter_t filter on a sample (slightly less precise than df2 but works in dynamic mode) */
