@@ -2048,6 +2048,9 @@ case MSP_NAME:
         sbufWriteU8(dst, currentPidProfile->tpa_mode);
         sbufWriteU8(dst, currentPidProfile->tpa_rate);
         sbufWriteU16(dst, currentPidProfile->tpa_breakpoint);   // was currentControlRateProfile->tpa_breakpoint
+        // Added with API 1.46: dono if this is legit
+        sbufWriteU8(dst, currentPidProfile->tpa_rate_lower);
+        sbufWriteU16(dst, currentPidProfile->tpa_breakpoint_lower);
         break;
     case MSP_SENSOR_CONFIG:
         // if sensor name is default setting, use name in runtime config
@@ -3228,6 +3231,9 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             currentPidProfile->tpa_mode = sbufReadU8(src);
             currentPidProfile->tpa_rate = MIN(sbufReadU8(src), TPA_MAX);
             currentPidProfile->tpa_breakpoint = sbufReadU16(src);
+            // Added with API 1.46: dono if this is legit
+            currentPidProfile->tpa_rate_lower = MIN(sbufReadU8(src), TPA_MAX);
+            currentPidProfile->tpa_breakpoint_lower = sbufReadU16(src);
         }
 
         pidInitConfig(currentPidProfile);

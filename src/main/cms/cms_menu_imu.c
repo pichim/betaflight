@@ -267,6 +267,8 @@ static uint8_t cmsx_simplified_gyro_filter;
 static uint8_t cmsx_simplified_gyro_filter_multiplier;
 static uint8_t cmsx_tpa_rate;
 static uint16_t cmsx_tpa_breakpoint;
+static uint8_t cmsx_tpa_rate_lower;
+static uint16_t cmsx_tpa_breakpoint_lower;
 
 static const void *cmsx_simplifiedTuningOnEnter(displayPort_t *pDisp)
 {
@@ -553,6 +555,8 @@ static uint8_t cmsx_feedforward_jitter_factor;
 
 static uint8_t cmsx_tpa_rate;
 static uint16_t cmsx_tpa_breakpoint;
+static uint8_t cmsx_tpa_rate_lower;
+static uint16_t cmsx_tpa_breakpoint_lower;
 
 static const void *cmsx_profileOtherOnEnter(displayPort_t *pDisp)
 {
@@ -605,6 +609,8 @@ static const void *cmsx_profileOtherOnEnter(displayPort_t *pDisp)
 #endif
     cmsx_tpa_rate = pidProfile->tpa_rate;
     cmsx_tpa_breakpoint = pidProfile->tpa_breakpoint;
+    cmsx_tpa_rate_lower = pidProfile->tpa_rate_lower;
+    cmsx_tpa_breakpoint_lower = pidProfile->tpa_breakpoint_lower;
 
     return NULL;
 }
@@ -660,6 +666,8 @@ static const void *cmsx_profileOtherOnExit(displayPort_t *pDisp, const OSD_Entry
 #endif
     pidProfile->tpa_rate = cmsx_tpa_rate;
     pidProfile->tpa_breakpoint = cmsx_tpa_breakpoint;
+    pidProfile->tpa_rate_lower = cmsx_tpa_rate_lower;
+    pidProfile->tpa_breakpoint_lower = cmsx_tpa_breakpoint_lower;
 
     initEscEndpoints();
     return NULL;
@@ -717,6 +725,8 @@ static const OSD_Entry cmsx_menuProfileOtherEntries[] = {
 
     { "TPA RATE",  OME_FLOAT,  NULL, &(OSD_FLOAT_t) { &cmsx_tpa_rate,          0,  100,  1, 10} },
     { "TPA BRKPT",   OME_UINT16, NULL, &(OSD_UINT16_t){ &cmsx_tpa_breakpoint, 1000, 2000, 10} },
+    { "TPA RATE LOW",  OME_FLOAT,  NULL, &(OSD_FLOAT_t) { &cmsx_tpa_rate_lower,          0,  100,  1, 10} },
+    { "TPA BRKPT LOW",   OME_UINT16, NULL, &(OSD_UINT16_t){ &cmsx_tpa_breakpoint_lower, 1000, 2000, 10} },
 
     { "BACK", OME_Back, NULL, NULL },
     { NULL, OME_END, NULL, NULL}

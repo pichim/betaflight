@@ -120,7 +120,7 @@ PG_RESET_TEMPLATE(pidConfig_t, pidConfig,
 
 #define LAUNCH_CONTROL_YAW_ITERM_LIMIT 50 // yaw iterm windup limit when launch mode is "FULL" (all axes)
 
-PG_REGISTER_ARRAY_WITH_RESET_FN(pidProfile_t, PID_PROFILE_COUNT, pidProfiles, PG_PID_PROFILE, 7);
+PG_REGISTER_ARRAY_WITH_RESET_FN(pidProfile_t, PID_PROFILE_COUNT, pidProfiles, PG_PID_PROFILE, 8);
 
 void resetPidProfile(pidProfile_t *pidProfile)
 {
@@ -225,6 +225,8 @@ void resetPidProfile(pidProfile_t *pidProfile)
         .tpa_mode = TPA_MODE_D,
         .tpa_rate = 65,
         .tpa_breakpoint = 1350,
+        .tpa_rate_lower = 15,
+        .tpa_breakpoint_lower = 1050,
         .angle_feedforward_smoothing_ms = 80,
         .angle_earth_ref = 100,
         .horizon_delay_ms = 500, // 500ms time constant on any increase in horizon strength
@@ -277,9 +279,15 @@ void pidResetIterm(void)
 
 void pidUpdateTpaFactor(float throttle)
 {
-    const float throttleTemp = fminf(throttle, 1.0f); // don't permit throttle > 1 ? is this needed ? can throttle be > 1 at this point ?
-    const float throttleDifference = fmaxf(throttleTemp - pidRuntime.tpaBreakpoint, 0.0f);
-    pidRuntime.tpaFactor = 1.0f - throttleDifference * pidRuntime.tpaMultiplier;
+    // don't permit throttle > 1 & throttle < 0 ? is this needed ? can throttle be > 1 or < 0 at this point ?
+    throttle = constrainf(throttle, 0.0f, 1.0f);
+    float tpaRate = 0.0f;
+    if (throttle < pidRuntime.tpaBreakpointLower && pidRuntime.tpaBreakpointLower > 0.01f) {
+        tpaRate = pidRuntime.tpaMultiplierLower * (pidRuntime.tpaBreakpointLower - throttle);
+    } else {
+        tpaRate = pidRuntime.tpaMultiplier * fmaxf(throttle - pidRuntime.tpaBreakpoint, 0.0f);
+    }
+    pidRuntime.tpaFactor = 1.0f - tpaRate;
 }
 
 void pidUpdateAntiGravityThrottleFilter(float throttle)

@@ -234,6 +234,8 @@ typedef struct pidProfile_s {
     uint8_t tpa_mode;                       // Controls which PID terms TPA effects
     uint8_t tpa_rate;                       // Percent reduction in P or D at full throttle
     uint16_t tpa_breakpoint;                // Breakpoint where TPA is activated
+    uint8_t tpa_rate_lower;                 // Percent reduction in P or D at zero throttle
+    uint16_t tpa_breakpoint_lower;          // Breakpoint where lower TPA is deactivated
     uint8_t angle_feedforward_smoothing_ms; // Smoothing factor for angle feedforward as time constant in milliseconds
     uint8_t angle_earth_ref;         // Control amount of "co-ordination" from yaw into roll while pitched forward in angle mode
     uint16_t horizon_delay_ms;           // delay when Horizon Strength increases, 50 = 500ms time constant
@@ -324,6 +326,8 @@ typedef struct pidRuntime_s {
     float tpaFactor;
     float tpaBreakpoint;
     float tpaMultiplier;
+    float tpaBreakpointLower;
+    float tpaMultiplierLower;
 
 #ifdef USE_ITERM_RELAX
     pt1Filter_t windupLpf[XYZ_AXIS_COUNT];
