@@ -2048,7 +2048,7 @@ case MSP_NAME:
         sbufWriteU8(dst, currentPidProfile->tpa_mode);
         sbufWriteU8(dst, currentPidProfile->tpa_rate);
         sbufWriteU16(dst, currentPidProfile->tpa_breakpoint);   // was currentControlRateProfile->tpa_breakpoint
-        // Added with API 1.47: dono if this is legit, TBC
+        // Added with API 1.46: dono if this is legit, TBC
         sbufWriteU8(dst, currentPidProfile->tpa_rate_lower);
         sbufWriteU16(dst, currentPidProfile->tpa_breakpoint_lower);
         break;
@@ -3233,7 +3233,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             currentPidProfile->tpa_breakpoint = sbufReadU16(src);
         }
         if (sbufBytesRemaining(src) >= 3) {
-            // Added with API 1.47: dono if this is legit, TBC
+            // Added with API 1.46: dono if this is legit, TBC
             currentPidProfile->tpa_rate_lower = MIN(sbufReadU8(src), TPA_MAX);
             currentPidProfile->tpa_breakpoint_lower = sbufReadU16(src);
         }
