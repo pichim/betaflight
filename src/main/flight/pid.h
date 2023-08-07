@@ -234,11 +234,11 @@ typedef struct pidProfile_s {
     uint8_t tpa_mode;                       // Controls which PID terms TPA effects
     uint8_t tpa_rate;                       // Percent reduction in P or D at full throttle
     uint16_t tpa_breakpoint;                // Breakpoint where TPA is activated
+    uint8_t angle_feedforward_smoothing_ms; // Smoothing factor for angle feedforward as time constant in milliseconds
+    uint8_t angle_earth_ref;                // Control amount of "co-ordination" from yaw into roll while pitched forward in angle mode
+    uint16_t horizon_delay_ms;              // Delay when Horizon Strength increases, 50 = 500ms time constant
     uint8_t tpa_rate_lower;                 // Percent reduction in P or D at zero throttle
     uint16_t tpa_breakpoint_lower;          // Breakpoint where lower TPA is deactivated
-    uint8_t angle_feedforward_smoothing_ms; // Smoothing factor for angle feedforward as time constant in milliseconds
-    uint8_t angle_earth_ref;         // Control amount of "co-ordination" from yaw into roll while pitched forward in angle mode
-    uint16_t horizon_delay_ms;           // delay when Horizon Strength increases, 50 = 500ms time constant
 } pidProfile_t;
 
 PG_DECLARE_ARRAY(pidProfile_t, PID_PROFILE_COUNT, pidProfiles);
