@@ -1008,6 +1008,12 @@ static void osdElementFlymode(osdElementParms_t *element)
         strcpy(element->buff, "HOR ");
     } else if (IS_RC_MODE_ACTIVE(BOXACROTRAINER)) {
         strcpy(element->buff, "ATRN");
+#ifdef USE_CHIRP
+    } else if (IS_RC_MODE_ACTIVE(BOXCHIRP) && !pidChirpIsFinished()) {
+#else
+    } else if (IS_RC_MODE_ACTIVE(BOXCHIRP)) {
+#endif
+        strcpy(element->buff, "CHIR");
     } else if (airmodeIsEnabled()) {
         strcpy(element->buff, "AIR ");
     } else {
