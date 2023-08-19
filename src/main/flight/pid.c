@@ -227,6 +227,7 @@ void resetPidProfile(pidProfile_t *pidProfile)
         .tpa_breakpoint = 1350,
         .tpa_rate_lower = 15,
         .tpa_breakpoint_lower = 1050,
+        .tpa_breakpoint_lower_vanish = 1,
         .angle_feedforward_smoothing_ms = 80,
         .angle_earth_ref = 100,
         .horizon_delay_ms = 500, // 500ms time constant on any increase in horizon strength
@@ -282,7 +283,7 @@ void pidUpdateTpaFactor(float throttle)
     // don't permit throttle > 1 & throttle < 0 ? is this needed ? can throttle be > 1 or < 0 at this point ?
     throttle = constrainf(throttle, 0.0f, 1.0f);
     float tpaRate = 0.0f;
-    if (throttle < pidRuntime.tpaBreakpointLower && pidRuntime.tpaBreakpointLower > 0.01f) {
+    if ((throttle < pidRuntime.tpaBreakpointLower && pidRuntime.tpaBreakpointLower > 0.01f) && !(pidRuntime.tpaBreakpointLowerVanish && isAirmodeActivated())) {
         tpaRate = pidRuntime.tpaMultiplierLower * (pidRuntime.tpaBreakpointLower - throttle);
     } else {
         tpaRate = pidRuntime.tpaMultiplier * fmaxf(throttle - pidRuntime.tpaBreakpoint, 0.0f);

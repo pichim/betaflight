@@ -269,6 +269,7 @@ static uint8_t cmsx_tpa_rate;
 static uint16_t cmsx_tpa_breakpoint;
 static uint8_t cmsx_tpa_rate_lower;
 static uint16_t cmsx_tpa_breakpoint_lower;
+static uint8_t cmsx_tpa_breakpoint_lower_vanish;
 
 static const void *cmsx_simplifiedTuningOnEnter(displayPort_t *pDisp)
 {
@@ -557,6 +558,7 @@ static uint8_t cmsx_tpa_rate;
 static uint16_t cmsx_tpa_breakpoint;
 static uint8_t cmsx_tpa_rate_lower;
 static uint16_t cmsx_tpa_breakpoint_lower;
+static uint8_t cmsx_tpa_breakpoint_lower_vanish;
 
 static const void *cmsx_profileOtherOnEnter(displayPort_t *pDisp)
 {
@@ -611,6 +613,7 @@ static const void *cmsx_profileOtherOnEnter(displayPort_t *pDisp)
     cmsx_tpa_breakpoint = pidProfile->tpa_breakpoint;
     cmsx_tpa_rate_lower = pidProfile->tpa_rate_lower;
     cmsx_tpa_breakpoint_lower = pidProfile->tpa_breakpoint_lower;
+    cmsx_tpa_breakpoint_lower_vanish = pidProfile->tpa_breakpoint_lower_vanish;
 
     return NULL;
 }
@@ -668,6 +671,7 @@ static const void *cmsx_profileOtherOnExit(displayPort_t *pDisp, const OSD_Entry
     pidProfile->tpa_breakpoint = cmsx_tpa_breakpoint;
     pidProfile->tpa_rate_lower = cmsx_tpa_rate_lower;
     pidProfile->tpa_breakpoint_lower = cmsx_tpa_breakpoint_lower;
+    pidProfile->tpa_breakpoint_lower_vanish = cmsx_tpa_breakpoint_lower_vanish;
 
     initEscEndpoints();
     return NULL;
@@ -723,10 +727,11 @@ static const OSD_Entry cmsx_menuProfileOtherEntries[] = {
     { "VBAT_SAG_COMP", OME_UINT8,  NULL, &(OSD_UINT8_t) { &cmsx_vbat_sag_compensation, 0, 150, 1 } },
 #endif
 
-    { "TPA RATE",  OME_FLOAT,  NULL, &(OSD_FLOAT_t) { &cmsx_tpa_rate,          0,  100,  1, 10} },
-    { "TPA BRKPT",   OME_UINT16, NULL, &(OSD_UINT16_t){ &cmsx_tpa_breakpoint, 1000, 2000, 10} },
-    { "TPA RATE LOW",  OME_FLOAT,  NULL, &(OSD_FLOAT_t) { &cmsx_tpa_rate_lower,          0,  100,  1, 10} },
-    { "TPA BRKPT LOW",   OME_UINT16, NULL, &(OSD_UINT16_t){ &cmsx_tpa_breakpoint_lower, 1000, 2000, 10} },
+    { "TPA RATE",          OME_FLOAT,  NULL, &(OSD_FLOAT_t) { &cmsx_tpa_rate,                 0,  100,    1, 10} },
+    { "TPA BRKPT",         OME_UINT16, NULL, &(OSD_UINT16_t){ &cmsx_tpa_breakpoint,              1000, 2000, 10} },
+    { "TPA RATE LOW",      OME_FLOAT,  NULL, &(OSD_FLOAT_t) { &cmsx_tpa_rate_lower,           0,  100,    1, 10} },
+    { "TPA BRKPT LOW",     OME_UINT16, NULL, &(OSD_UINT16_t){ &cmsx_tpa_breakpoint_lower,        1000, 2000, 10} },
+    { "TPA BRKPT LOW VAN", OME_UINT8,  NULL, &(OSD_UINT8_t) { &cmsx_tpa_breakpoint_lower_vanish,     0,   1,  1} }, // ToDo: confirm this is correct
 
     { "BACK", OME_Back, NULL, NULL },
     { NULL, OME_END, NULL, NULL}
