@@ -239,7 +239,7 @@ typedef struct pidProfile_s {
     uint16_t horizon_delay_ms;              // Delay when Horizon Strength increases, 50 = 500ms time constant
     uint8_t tpa_rate_lower;                 // Percent reduction in P or D at zero throttle
     uint16_t tpa_breakpoint_lower;          // Breakpoint where lower TPA is deactivated
-    uint8_t tpa_breakpoint_lower_vanish;    // off, on - if on tpa_breakpoint_lower will be set to airModeActivateThreshold / 100
+    uint8_t tpa_breakpoint_lower_vanish;    // off, on - if on lower TPA is only active until tpa_breakpoint_lower is reached the first time
 } pidProfile_t;
 
 PG_DECLARE_ARRAY(pidProfile_t, PID_PROFILE_COUNT, pidProfiles);
