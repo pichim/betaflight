@@ -356,6 +356,8 @@ typedef struct blackboxGpsState_s {
     int32_t GPS_home[2];
     int32_t GPS_coord[2];
     uint8_t GPS_numSat;
+    uint16_t GPS_velocity[3];
+    uint16_t GPS_altitude;
 } blackboxGpsState_t;
 
 // This data is updated really infrequently:
@@ -1082,12 +1084,16 @@ static void writeGPSHomeFrame(void)
 {
     blackboxWrite('H');
 
-    blackboxWriteSignedVB(GPS_home[0]);
-    blackboxWriteSignedVB(GPS_home[1]);
+    blackboxWriteSignedVB(GPS_home[GPS_LATITUDE]);
+    blackboxWriteSignedVB(GPS_home[GPS_LONGITUDE]);
     //TODO it'd be great if we could grab the GPS current time and write that too
 
-    gpsHistory.GPS_home[0] = GPS_home[0];
-    gpsHistory.GPS_home[1] = GPS_home[1];
+    gpsHistory.GPS_home[GPS_LATITUDE] = GPS_home[GPS_LATITUDE];
+    gpsHistory.GPS_home[GPS_LONGITUDE] = GPS_home[GPS_LONGITUDE];
+    gpsHistory.GPS_altitude = GPS_altitude;
+    gpsHistory.GPS_velocity[GPS_VELOCITY_NORTH] = GPS_velocity[GPS_VELOCITY_NORTH];
+    gpsHistory.GPS_velocity[GPS_VELOCITY_EAST] = GPS_velocity[GPS_VELOCITY_EAST];
+    gpsHistory.GPS_velocity[GPS_VELOCITY_DOWN] = GPS_velocity[GPS_VELOCITY_DOWN];
 }
 
 static void writeGPSFrame(timeUs_t currentTimeUs)
@@ -1106,8 +1112,8 @@ static void writeGPSFrame(timeUs_t currentTimeUs)
     }
 
     blackboxWriteUnsignedVB(gpsSol.numSat);
-    blackboxWriteSignedVB(gpsSol.llh.lat - gpsHistory.GPS_home[GPS_LATITUDE]);
-    blackboxWriteSignedVB(gpsSol.llh.lon - gpsHistory.GPS_home[GPS_LONGITUDE]);
+    blackboxWriteSignedVB(gpsSol.llh.lat); //- gpsHistory.GPS_home[GPS_LATITUDE]);
+    blackboxWriteSignedVB(gpsSol.llh.lon); //- gpsHistory.GPS_home[GPS_LONGITUDE]);
     blackboxWriteUnsignedVB(gpsSol.llh.altCm / 10); // was originally designed to transport meters in int16, but +-3276.7m is a good compromise
     blackboxWriteUnsignedVB(gpsSol.groundSpeed);
     blackboxWriteUnsignedVB(gpsSol.groundCourse);
@@ -1115,6 +1121,10 @@ static void writeGPSFrame(timeUs_t currentTimeUs)
     gpsHistory.GPS_numSat = gpsSol.numSat;
     gpsHistory.GPS_coord[GPS_LATITUDE] = gpsSol.llh.lat;
     gpsHistory.GPS_coord[GPS_LONGITUDE] = gpsSol.llh.lon;
+    gpsHistory.GPS_altitude = gpsSol.llh.altCm;
+    gpsHistory.GPS_velocity[GPS_VELOCITY_NORTH] = gpsSol.vel.velN;
+    gpsHistory.GPS_velocity[GPS_VELOCITY_EAST] = gpsSol.vel.velE;
+    gpsHistory.GPS_velocity[GPS_VELOCITY_DOWN] = gpsSol.vel.velD;
 }
 #endif
 
@@ -1756,7 +1766,7 @@ STATIC_UNIT_TESTED bool blackboxShouldLogIFrame(void)
 #ifdef USE_GPS
 STATIC_UNIT_TESTED bool blackboxShouldLogGpsHomeFrame(void)
 {
-    if ((GPS_home[0] != gpsHistory.GPS_home[0] || GPS_home[1] != gpsHistory.GPS_home[1]
+    if ((GPS_home[GPS_LATITUDE] != gpsHistory.GPS_home[GPS_LATITUDE] || GPS_home[GPS_LONGITUDE] != gpsHistory.GPS_home[GPS_LONGITUDE]
         || (blackboxPFrameIndex == blackboxIInterval / 2 && blackboxIFrameIndex % 128 == 0)) && isFieldEnabled(FIELD_SELECT(GPS))) {
         return true;
     }
@@ -1815,7 +1825,11 @@ STATIC_UNIT_TESTED void blackboxLogIteration(timeUs_t currentTimeUs)
                 writeGPSFrame(currentTimeUs);
             } else if (gpsSol.numSat != gpsHistory.GPS_numSat
                     || gpsSol.llh.lat != gpsHistory.GPS_coord[GPS_LATITUDE]
-                    || gpsSol.llh.lon != gpsHistory.GPS_coord[GPS_LONGITUDE]) {
+                    || gpsSol.llh.lon != gpsHistory.GPS_coord[GPS_LONGITUDE]
+                    || gpsSol.llh.altCm != gpsHistory.GPS_altitude
+                    || gpsSol.vel.velN != gpsHistory.GPS_velocity[GPS_VELOCITY_NORTH]
+                    || gpsSol.vel.velE != gpsHistory.GPS_velocity[GPS_VELOCITY_EAST]
+                    || gpsSol.vel.velD != gpsHistory.GPS_velocity[GPS_VELOCITY_DOWN]) {
                 //We could check for velocity changes as well but I doubt it changes independent of position
                 writeGPSFrame(currentTimeUs);
             }

@@ -3610,9 +3610,9 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         gpsSol.time = sbufReadU32(src);     // ms_tow
         gpsSetFixState(sbufReadU8(src) != 0); // fix_type
         gpsSol.numSat = sbufReadU8(src);    // satellites_in_view
-        gpsSol.acc.hAcc = sbufReadU16(src) * 10; // horizontal_pos_accuracy - convert cm to mm
-        gpsSol.acc.vAcc = sbufReadU16(src) * 10; // vertical_pos_accuracy - convert cm to mm
-        gpsSol.acc.sAcc = sbufReadU16(src) * 10; // horizontal_vel_accuracy - convert cm to mm
+        gpsSol.acc.hAcc = sbufReadU16(src); // horizontal_pos_accuracy
+        gpsSol.acc.vAcc = sbufReadU16(src); // vertical_pos_accuracy
+        gpsSol.acc.sAcc = sbufReadU16(src); // horizontal_vel_accuracy
         gpsSol.dop.hdop = sbufReadU16(src); // hdop
         gpsSol.llh.lon = sbufReadU32(src);
         gpsSol.llh.lat = sbufReadU32(src);

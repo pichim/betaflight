@@ -66,6 +66,8 @@
 // GPS
 // **********************
 int32_t GPS_home[2];
+int16_t GPS_velocity[3];            // velocity in cm/s in NED direction
+int16_t GPS_altitude;               // altitude in cm
 uint16_t GPS_distanceToHome;        // distance to home point in meters
 uint32_t GPS_distanceToHomeCm;
 int16_t GPS_directionToHome;        // direction to home or hol point in degrees * 10
@@ -2148,6 +2150,10 @@ static bool UBLOX_parse_gps(void)
         gpsSol.llh.lat = ubxRcvMsgPayload.ubxNavPosllh.latitude;
         gpsSol.llh.altCm = ubxRcvMsgPayload.ubxNavPosllh.altitudeMslMm / 10;  //alt in cm
         gpsSol.time = ubxRcvMsgPayload.ubxNavPosllh.time;
+
+        gpsSol.acc.hAcc = ubxRcvMsgPayload.ubxNavPosllh.horizontal_accuracy / 10; // cm
+        gpsSol.acc.vAcc = ubxRcvMsgPayload.ubxNavPosllh.vertical_accuracy / 10;   // cm
+
         calculateNavInterval();
         gpsSetFixState(ubxHaveNewValidFix);
         ubxHaveNewPosition = true;
@@ -2192,6 +2198,13 @@ static bool UBLOX_parse_gps(void)
         gpsSol.speed3d = ubxRcvMsgPayload.ubxNavVelned.speed_3d;       // cm/s
         gpsSol.groundSpeed = ubxRcvMsgPayload.ubxNavVelned.speed_2d;    // cm/s
         gpsSol.groundCourse = (uint16_t) (ubxRcvMsgPayload.ubxNavVelned.heading_2d / 10000);     // Heading 2D deg * 100000 rescaled to deg * 10
+
+        gpsSol.acc.headAcc = ubxRcvMsgPayload.ubxNavVelned.heading_accuracy / 10000;  // Heading accuracy deg * 100000 rescaled to deg * 10
+        gpsSol.acc.sAcc = ubxRcvMsgPayload.ubxNavVelned.speed_accuracy; // cm/s
+        gpsSol.vel.velN = ubxRcvMsgPayload.ubxNavVelned.ned_north;      // cm/s
+        gpsSol.vel.velE = ubxRcvMsgPayload.ubxNavVelned.ned_east;       // cm/s
+        gpsSol.vel.velD = ubxRcvMsgPayload.ubxNavVelned.ned_down;       // cm/s
+
         ubxHaveNewSpeed = true;
         break;
     case CLSMSG(CLASS_NAV, MSG_NAV_PVT):
@@ -2207,13 +2220,41 @@ static bool UBLOX_parse_gps(void)
         gpsSetFixState(ubxHaveNewValidFix);
         ubxHaveNewPosition = true;
         gpsSol.numSat = ubxRcvMsgPayload.ubxNavPvt.numSV;
-        gpsSol.acc.hAcc = ubxRcvMsgPayload.ubxNavPvt.hAcc;
-        gpsSol.acc.vAcc = ubxRcvMsgPayload.ubxNavPvt.vAcc;
-        gpsSol.acc.sAcc = ubxRcvMsgPayload.ubxNavPvt.sAcc;
+        gpsSol.acc.hAcc = ubxRcvMsgPayload.ubxNavPvt.hAcc / 10;  // cm/s
+        gpsSol.acc.vAcc = ubxRcvMsgPayload.ubxNavPvt.vAcc / 10;  // cm/s
+        gpsSol.acc.sAcc = ubxRcvMsgPayload.ubxNavPvt.sAcc / 10;  // cm/s
         gpsSol.speed3d = (uint16_t) sqrtf(powf(ubxRcvMsgPayload.ubxNavPvt.gSpeed / 10, 2.0f) + powf(ubxRcvMsgPayload.ubxNavPvt.velD / 10, 2.0f));
         gpsSol.groundSpeed = ubxRcvMsgPayload.ubxNavPvt.gSpeed / 10;    // cm/s
         gpsSol.groundCourse = (uint16_t) (ubxRcvMsgPayload.ubxNavPvt.headMot / 10000);     // Heading 2D deg * 100000 rescaled to deg * 10
         gpsSol.dop.pdop = ubxRcvMsgPayload.ubxNavPvt.pDOP;
+
+        gpsSol.acc.headAcc = (uint16_t) (ubxRcvMsgPayload.ubxNavPvt.headAcc / 10000);      // Heading 2D deg * 100000 rescaled to deg * 10
+        gpsSol.vel.velN = ubxRcvMsgPayload.ubxNavPvt.velN / 10; // cm/s
+        gpsSol.vel.velE = ubxRcvMsgPayload.ubxNavPvt.velE / 10; // cm/s
+        gpsSol.vel.velD = ubxRcvMsgPayload.ubxNavPvt.velD / 10; // cm/s
+
+        // --- gpsEstimatorPosition_t
+        // ubxRcvMsgPayload.ubxNavPvt.lon       -> gpsSol.llh.lon      | 1e7 deg  ->  GPS_coord         | 1e7 deg 
+        // ubxRcvMsgPayload.ubxNavPvt.lat       -> gpsSol.llh.lat      | 1e7 deg  ->  GPS_coord         | 1e7 deg 
+        // ubxRcvMsgPayload.ubxNavPvt.hMSL;     -> gpsSol.llh.altCm    |      cm  ->  GPS_altitude      |      cm
+        // ubxRcvMsgPayload.ubxNavPvt.headMot;  -> gpsSol.groundCourse | 1e1 deg  ->  GPS_ground_course | 1e1 deg
+
+        // --- gpsEstimatorVelocity_t
+        // ubxRcvMsgPayload.ubxNavPvt.velN;     -> gpsSol.vel.velN     | cm/s     ->  ???
+        // ubxRcvMsgPayload.ubxNavPvt.velE;     -> gpsSol.vel.velN     | cm/s     ->  ???
+        // ubxRcvMsgPayload.ubxNavPvt.velD;     -> gpsSol.vel.velN     | cm/s     ->  ???
+        // ubxRcvMsgPayload.ubxNavPvt.gSpeed;   -> gpsSol.groundSpeed  | cm/s     ->  GPS_speed         | cm/s
+
+        // --- gpsEstimatorAccuracy_t
+        // ubxRcvMsgPayload.ubxNavPvt.hAcc;     -> gpsSol.acc.hAcc     | cm       ->  ???
+        // ubxRcvMsgPayload.ubxNavPvt.vAcc;     -> gpsSol.acc.vAcc     | cm       ->  ???
+        // ubxRcvMsgPayload.ubxNavPvt.sAcc;     -> gpsSol.acc.sAcc     | cm/s     ->  ???
+        // ubxRcvMsgPayload.ubxNavPvt.headAcc   -> gpsSol.acc.headAcc  | 1e1 deg  ->  ???
+        // ubxRcvMsgPayload.ubxNavPvt.pDOP;     -> gpsSol.dop.pdop     | 1e2      ->  ???
+        // ubxRcvMsgPayload.ubxNavPvt.numSV;    -> gpsSol.numSat                  ->  GPS_numSat
+        // gpsSol.estimatorData.accuracy.fixType = ubxRcvMsgPayload.ubxNavPvt.fixType;
+        // gpsSol.estimatorData.accuracy.flags = ubxRcvMsgPayload.ubxNavPvt.flags;
+
         ubxHaveNewSpeed = true;
 #ifdef USE_RTC_TIME
         //set clock, when gps time is available
@@ -2561,6 +2602,9 @@ void GPS_reset_home_position(void)
             GPS_home[GPS_LATITUDE] = gpsSol.llh.lat;
             GPS_home[GPS_LONGITUDE] = gpsSol.llh.lon;
             GPS_calc_longitude_scaling(gpsSol.llh.lat);
+            GPS_velocity[GPS_VELOCITY_NORTH] = gpsSol.vel.velN;
+            GPS_velocity[GPS_VELOCITY_EAST] = gpsSol.vel.velE;
+            GPS_velocity[GPS_VELOCITY_DOWN] = gpsSol.vel.velD;
             ENABLE_STATE(GPS_FIX_HOME);
             // no point beeping success here since:
             // when triggered by tryArm, the arming beep is modified to indicate the GPS home fix status on arming, and

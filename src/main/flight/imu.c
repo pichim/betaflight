@@ -367,6 +367,17 @@ STATIC_UNIT_TESTED void imuMahonyAHRSupdate(float dt, float gx, float gy, float 
     imuComputeRotationMatrix();
 
     attitudeIsEstablished = true;
+
+    // additional debug for pos estimator
+    DEBUG_SET(DEBUG_POS_ESTIMATOR, 0, gpsSol.vel.velN);
+    DEBUG_SET(DEBUG_POS_ESTIMATOR, 1, gpsSol.vel.velE);
+    DEBUG_SET(DEBUG_POS_ESTIMATOR, 2, gpsSol.vel.velD);
+    DEBUG_SET(DEBUG_POS_ESTIMATOR, 3, gpsSol.acc.hAcc);
+    DEBUG_SET(DEBUG_POS_ESTIMATOR, 4, gpsSol.acc.vAcc);
+    DEBUG_SET(DEBUG_POS_ESTIMATOR, 5, gpsSol.acc.sAcc);
+    DEBUG_SET(DEBUG_POS_ESTIMATOR, 6, gpsSol.acc.headAcc);
+    DEBUG_SET(DEBUG_POS_ESTIMATOR, 6, gpsSol.dop.pdop);
+
 }
 
 STATIC_UNIT_TESTED void imuUpdateEulerAngles(void)

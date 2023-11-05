@@ -173,6 +173,12 @@ typedef enum {
 } gpsCoordinateType_e;
 
 typedef enum {
+    GPS_VELOCITY_NORTH,
+    GPS_VELOCITY_EAST,
+    GPS_VELOCITY_DOWN
+} gpsVelocityType_e;
+
+typedef enum {
     GPS_NMEA = 0,
     GPS_UBLOX,
     GPS_MSP
@@ -237,13 +243,21 @@ typedef struct gpsDilution_s {
 
 /* Only available on U-blox protocol */
 typedef struct gpsAccuracy_s {
-    uint32_t hAcc;                  // horizontal accuracy in mm
-    uint32_t vAcc;                  // vertical accuracy in mm
-    uint32_t sAcc;                  // speed accuracy in mm/s
+    uint16_t hAcc;                  // horizontal accuracy estimate in cm
+    uint16_t vAcc;                  // vertical accuracy estimate in cm
+    uint16_t sAcc;                  // speed accuracy estimate in cm/s
+    uint16_t headAcc;               // heading accuracy estimate (both motion and vehicle) in degrees * 10
 } gpsAccuracy_t;
+
+typedef struct gpsVelocity_s {
+    int16_t velN;                  // north velocity in cm/s
+    int16_t velE;                  // east velocity in cm/s
+    int16_t velD;                  // down velocity in cm/s
+} gpsVelocity_t;
 
 typedef struct gpsSolutionData_s {
     gpsLocation_t llh;
+    gpsVelocity_t vel;
     gpsDilution_t dop;
     gpsAccuracy_t acc;
     uint16_t speed3d;               // speed in 0.1m/s
@@ -300,6 +314,8 @@ typedef struct gpsData_s {
 } gpsData_t;
 
 extern int32_t GPS_home[2];
+extern int16_t GPS_velocity[3];
+extern int16_t GPS_altitude;
 extern uint16_t GPS_distanceToHome;             // distance to home point in meters
 extern uint32_t GPS_distanceToHomeCm;           // distance to home point in cm
 extern int16_t GPS_directionToHome;             // direction to home or hol point in degrees
