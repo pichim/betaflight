@@ -247,7 +247,7 @@ void resetPidProfile(pidProfile_t *pidProfile)
         .tpa_curve_pid_thr100 = 70,
         .tpa_curve_expo = 20,
         .chirp_lag_freq_hz = 3,
-        .chirp_lag_freq_hz = 3,        .chirp_lead_freq_hz = 30,
+        .chirp_lead_freq_hz = 30,
         .chirp_amplitude_roll = 230,
         .chirp_amplitude_pitch = 230,
         .chirp_amplitude_yaw = 180,
