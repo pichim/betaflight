@@ -261,9 +261,12 @@ void resetPidProfile(pidProfile_t *pidProfile)
         .angle_pitch_offset = 0,
         .chirp_lag_freq_hz = 3,
         .chirp_lead_freq_hz = 30,
-        .chirp_amplitude_roll = 230,
-        .chirp_amplitude_pitch = 230,
-        .chirp_amplitude_yaw = 180,
+        // .chirp_amplitude_roll = 230,
+        // .chirp_amplitude_pitch = 230,
+        // .chirp_amplitude_yaw = 180,
+        .chirp_amplitude_roll = 23,
+        .chirp_amplitude_pitch = 23,
+        .chirp_amplitude_yaw = 18,
         .chirp_frequency_start_deci_hz = 2,
         .chirp_frequency_end_deci_hz = 6000,
         .chirp_time_seconds = 20,
@@ -1251,6 +1254,10 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
 #endif // USE_CHIRP
 
         float currentPidSetpoint = getSetpointRate(axis);
+#ifdef USE_CHIRP
+        currentPidSetpoint += currentChirp; // inject chirp before angle/rate processing
+        DEBUG_SET(DEBUG_CHIRP, 1, lrintf(500.0f * currentPidSetpoint)); // scled for better resolution, debug are int16_t,  so we have the range -32768...32767 to work with
+#endif // USE_CHIRP
         if (pidRuntime.maxVelocity[axis]) {
             currentPidSetpoint = accelerationLimit(axis, currentPidSetpoint);
         }
@@ -1310,9 +1317,9 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
 
         // -----calculate error rate
         const float gyroRate = gyro.gyroADCf[axis]; // Process variable from gyro output in deg/sec
-#ifdef USE_CHIRP
-        currentPidSetpoint += currentChirp;
-#endif // USE_CHIRP
+// #ifdef USE_CHIRP
+//         currentPidSetpoint += currentChirp;
+// #endif // USE_CHIRP
         float errorRate = currentPidSetpoint - gyroRate; // r - y
 #if defined(USE_ACC)
         handleCrashRecovery(
